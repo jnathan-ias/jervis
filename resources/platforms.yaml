@@ -1,0 +1,31 @@
+defaults:
+  platform: default
+  os: ubuntu2204
+  stability: stable
+  sudo: sudo
+supported_platforms:
+  default: &default-platform
+    alpine3:
+      friendlyName: Alpine 3.x
+      language:
+        - java
+        - python
+        - shell
+      toolchain:
+        - env
+        - jdk
+        - python
+    ubuntu2204:
+      friendlyName: Ubuntu 22.04
+      language:
+        - java
+        - python
+        - shell
+      toolchain:
+        - env
+        - jdk
+        - python
+  amd64: *default-platform
+  arm64: *default-platform
+restrictions: {
+  }

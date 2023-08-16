@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -15,23 +15,98 @@
    */
 package net.gleske.jervis.remotes
 
-import net.gleske.jervis.exceptions.JervisException
+import net.gleske.jervis.exceptions.VaultException
 import net.gleske.jervis.remotes.interfaces.TokenCredential
 import net.gleske.jervis.remotes.interfaces.VaultCredential
 
-// TODO: java doc
-    // TODO document recommended setup and usage (setting up recommended
-    //   policy, AppId, use batch token, manually set mountVersions to cut down
-    //   on API calls).  Add a bullet point list of useful methods.  Document
-    //   usage of the method within the method itself.
-    // TODO document minimum required role for full functionality
-    // TODO document reducing the role and code changes required (e.g. using
-    //   mountVersions or a batch token instead of a service token)
 /**
   Provides easy access to
   <a href="https://www.vaultproject.io/" target="_blank">HashiCorp Vault</a>
   Key-Value secrets engine.  Both KV v1 and KV v2 secrets engines are
   supported.
+
+  <h2>Discovering key-value mounts</h2>
+
+  <p>There are two ways to set up instantiation of this class.  Manually specifying
+  key-value mounts or auto-discovering mounts.  In general, auto-discovery is
+  more reliable and recommended.  Manually specifying mounts is available to
+  reduce API usage.</p>
+
+  <h4>Automatically discover mounts</h4>
+
+<pre><code>
+import net.gleske.jervis.remotes.interfaces.TokenCredential
+import net.gleske.jervis.remotes.VaultService
+
+VaultService vault = new VaultService('http://active.vault.service.consul:8200/', creds)
+
+// auto-discover mounts
+vault.discoverKVMounts()
+</code></pre>
+
+  <h4>Manually declare mounts</h4>
+
+<pre><code>
+import net.gleske.jervis.remotes.interfaces.TokenCredential
+import net.gleske.jervis.remotes.VaultService
+
+VaultService vault = new VaultService('http://active.vault.service.consul:8200/', creds)
+
+// Specify mounts
+vault.mountVersions = [kv: '2', secret: '1']
+
+// Optional: KV v2 might require Check-and-Set to be enabled.
+vault.cas_required = ['kv']
+</code></pre>
+
+  <h2>Restricting by Vault Policy</h2>
+
+  <p>Ideally, your policy for an application would be limited only to what that
+  application needs.  This section provides some guidance for Vault policy.</p>
+
+  <p>If you decide to use <tt>discoverMounts()</tt> method, then you'll need the
+  following policy addition.  However, this is insecure and could leak other
+  secrets engine mounts.</p>
+
+<pre><code>
+# Read all mounts to find KV stores
+path "sys/mounts" {
+  capabilities = ["read"]
+}
+# Read mount config for Check-and-Set configuration.
+path "+/config" {
+  capabilities = ["read"]
+}
+</code></pre>
+
+<p>Instead of the above policy, it is recommended you instantiate your code with
+static values.  The following will not generate any API calls to vault and so do
+not need a policy.</p>
+
+<pre><code class="language-groovy">
+// Set secrets engines KV v1 and KV v2 mounts
+vault.mountVersions = [kv: 2, secret: 1, kv_cas: 2]
+// Only mount kv_cas requires Check-and-Set
+vault.cas_required = ['kv_cas']
+</code></pre>
+
+  <p>On a KV secrets store, you'll want to limit access for an application to
+  read-only most likely.  Here's an example policy which would look the same
+  whether a KV v1 or KV v2 secrets engine.  The following policy will allow your
+  application to walk the full secrets store.  You can further restrict the
+  policy to certain paths inside of the secret store.</p>
+
+<pre><code>
+path "kv/*" {
+    capabilities = ["read", "list"]
+}
+</code></pre>
+
+  <p>Be aware that <tt>list</tt> capability enables recursive searching through
+  the secrets store or path.  Ideally, your application will only be looking for
+  secrets in a specific path so there should be no need to grant <tt>list</tt>
+  capability.</p>
+
 
   <h2>Sample usage</h2>
   <p>To run examples, clone Jervis and execute <tt>./gradlew console</tt> to
@@ -42,15 +117,18 @@ import net.gleske.jervis.remotes.interfaces.VaultCredential
   After you instantiate the local Vault cluster you'll need to run the
   following Shell commands relative to the root of the repository at
   <tt>~/git/github/docker-compose-ha-consul-vault-ui</tt>.</p>
-<pre><tt># Enable secrets engines KV v1 and KV v2
+<pre><code>
+# Enable secrets engines KV v1 and KV v2
 ./scripts/curl-api.sh --request POST --data '{"type": "kv", "options": {"version": "1"}}' http://active.vault.service.consul:8200/v1/sys/mounts/secret
 ./scripts/curl-api.sh --request POST --data '{"type": "kv", "options": {"version": "2"}}' http://active.vault.service.consul:8200/v1/sys/mounts/kv
 
 # Generate an admin token for initial setup
-./scripts/get-admin-token.sh</tt></pre>
+./scripts/get-admin-token.sh
+</code></pre>
   <p>Afterwards, run the following Groovy Console script to populate the local
   Vault cluster with dummy secret data.</p>
-<pre><tt>System.setProperty("socksProxyHost", "localhost")
+<pre><code>
+System.setProperty("socksProxyHost", "localhost")
 System.setProperty("socksProxyPort", "1080")
 
 import net.gleske.jervis.remotes.interfaces.TokenCredential
@@ -69,12 +147,15 @@ vault.setSecret("kv/foo/bar/baz", ['foo':'bar'])
 vault.setSecret("secret/foo", ['test':'data'])
 vault.setSecret("secret/foo/bar", ['someother':'data'])
 vault.setSecret("secret/foo/bar/baz", ['more':'secrets'])
-println 'Success.'</tt></pre>
+println 'Success.'
+</code></pre>
   <p><b>Please note:</b> If you're practicing against the local Vault cluster,
   then your Groovy Console requires the following lines of code at the top of
   the Groovy script.  It uses the SOCKS proxy provided by the test cluster.</p>
-<pre><tt>System.setProperty("socksProxyHost", "localhost")
-System.setProperty("socksProxyPort", "1080")</tt></pre>
+<pre><code>
+System.setProperty("socksProxyHost", "localhost")
+System.setProperty("socksProxyPort", "1080")
+</code></pre>
 
   <h2>Recommended setup</h2>
   <ul>
@@ -107,7 +188,14 @@ System.setProperty("socksProxyPort", "1080")</tt></pre>
   This section will discuss both AppRole and Token-based authentication.</p>
 
   <h4>AppRole Authentication</h4>
-<pre><tt>import net.gleske.jervis.remotes.creds.VaultAppRoleCredential
+
+  <p>Refer to
+  <tt>{@link net.gleske.jervis.remotes.interfaces.VaultRoleIdCredential}</tt>
+  for production-use examples of securely managing the Role ID and Secret ID.
+  This example is for simple demonstration purposes of this class.</p>
+
+<pre><code>
+import net.gleske.jervis.remotes.creds.VaultAppRoleCredential
 import net.gleske.jervis.remotes.VaultService
 
 VaultAppRoleCredential creds = new VaultAppRoleCredential('http://active.vault.service.consul:8200/', 'my-app-role', 'my-secret-id')
@@ -115,7 +203,7 @@ VaultService vault = new VaultService(creds)
 
 // read a secret
 vault.getSecret('path/to/secret')
-</tt></pre>
+</code></pre>
 
   <h4>Token Authentication</h4>
   <p>Authenticating with Vault using a Token is pretty basic.  There's no
@@ -124,7 +212,8 @@ vault.getSecret('path/to/secret')
   you must use a Vault Token, then this example describes a basic method.  This
   example uses a basic static token and will not automatically renew the token
   like AppRole support.</p>
-<pre><tt>import net.gleske.jervis.remotes.interfaces.TokenCredential
+<pre><code>
+import net.gleske.jervis.remotes.interfaces.TokenCredential
 import net.gleske.jervis.remotes.VaultService
 
 // 's.fuFc...' is a vault token in this example
@@ -132,21 +221,28 @@ TokenCredential creds = [getToken: {-> 's.fuFc...' }] as TokenCredential
 VaultService vault = new VaultService('http://active.vault.service.consul:8200/', creds)
 
 // get a secret using the basic Vault Token
-vault.getSecret('path/to/secret')</tt></pre>
+vault.getSecret('path/to/secret')
+</code></pre>
   */
 class VaultService implements SimpleRestServiceSupport {
     private final String vault_url
     private final TokenCredential credential
 
-    private static void checkLocationMap(Map location) {
-        if(!(('mount' in location) && ('path' in location))) {
-            throw new JervisException('"mount" and "path" must be set when using location Map.')
+    private void checkLocationMap(Map location) {
+        if(!(('mount' in location.keySet()) || !('path' in location.keySet()))) {
+            throw new VaultException('"mount" and "path" must be set when using location Map.')
+        }
+        if(!(location.mount in String) || !(location.path in String)) {
+            throw new VaultException('"mount" and "path" must contain String values when using location Map.')
+        }
+        if(!(location.mount in this.mountVersions.keySet())) {
+            throw new VaultException('Location map contains an invalid mount.  It must be a KV v1 or KV v2 mount in Vault.')
         }
     }
 
     /**
       Internal method used by
-      <tt>{@link #findAllKeys(java.lang.String, java.lang.Integer)}</tt>
+      <tt>{@link #findAllKeys(java.util.Map, java.lang.Integer)}</tt>
       which tracks recursion level in addition to the user-passed settings.
 
       @param path         A path to recursively search.
@@ -156,17 +252,23 @@ class VaultService implements SimpleRestServiceSupport {
                           compare against desiredLevel.
       @return A list of keys that are paths.
       */
-    private List<String> recursiveFindAllKeys(String path, Integer desiredLevel, Integer level) {
+    private List<String> recursiveFindAllKeys(Map location, Integer desiredLevel, Integer level) {
         if(desiredLevel > 0 && level > desiredLevel) {
             return []
         }
+        List dirList = []
+        try {
+            dirList = listPath(location)
+        } catch(IOException ignored) {
+            return []
+        }
         List entries = []
-        entries = listPath(path).collect { String key ->
+        entries = dirList.collect { String key ->
             if(key.endsWith('/')) {
-                recursiveFindAllKeys(path + key, desiredLevel, level + 1)
+                recursiveFindAllKeys([mount: location.mount, path: location.path + key], desiredLevel, level + 1)
             }
             else {
-                [path + key]
+                [getPathFromLocationMap([mount: location.mount, path: location.path + key])]
             }
         }
         entries.sum()
@@ -179,23 +281,7 @@ class VaultService implements SimpleRestServiceSupport {
       @return <tt>true</tt> if Key-Value v2 or <tt>false</tt> if Key-Value v1.
       */
     private Boolean isKeyValueV2(String mount) {
-        discoverMountVersion(mount)
         this.mountVersions[mount] == '2'
-    }
-
-    /**
-      If the mount is not already in mountVersions, then this will inspect the
-      mount and set whether the mount is a Key-Value secret engine v1 or v2.
-
-      @param mount A Vault secrets engine mount point.  The tune API is called
-                   to discover the KV secrets engine version
-      */
-    // TODO test mounts that have a slash in its name
-    private void discoverMountVersion(String mount) {
-        if(mount in this.mountVersions) {
-            return
-        }
-        setMountVersions(mount, apiFetch("sys/mounts/${mount}/tune")?.options?.version)
     }
 
     /**
@@ -210,10 +296,12 @@ class VaultService implements SimpleRestServiceSupport {
       <p>If you choose not to manually set the mount version, then you'll need
       the following
       <a href="https://www.vaultproject.io/docs/concepts/policies#policy-syntax" target="_blank">Vault policy ACL</a>.</p>
-<pre><tt># Read mount config to detect KV secrets engine version
+<pre><code>
+# Read mount config to detect KV secrets engine version
 path "sys/mounts/+/tune" {
     capabilities = ["read"]
-}</tt></pre>
+}
+</code></pre>
 
       <h5>Manually setting mount version</h5>
 
@@ -231,7 +319,8 @@ path "sys/mounts/+/tune" {
       </ul>
 
       <h5>Code Example</h5>
-<pre><tt>import net.gleske.jervis.remotes.VaultService
+<pre><code>
+import net.gleske.jervis.remotes.VaultService
 import net.gleske.jervis.remotes.creds.VaultAppRoleCredential
 
 VaultAppRoleCredential cred = new VaultAppRoleCredential('http://active.vault.service.consul:8200/', 'app-id', 'secret-id')
@@ -244,9 +333,16 @@ vault.setMountVersions('kv', '2')
 // alternately
 Map versions = [secret: '1', kv: '2']
 vault.setMountVersions(versions)
-vault.mountVersions = versions</tt></pre>
+vault.mountVersions = versions
+</code></pre>
       */
     Map<String, String> mountVersions = [:]
+
+    /**
+      A list of KV v2 mounts which enforce cas_required for all write
+      operations.
+      */
+    List cas_required = []
 
     /**
       Customizable HTTP headers which get sent to Vault in addition to
@@ -254,18 +350,73 @@ vault.mountVersions = versions</tt></pre>
       */
     Map<String, String> headers = [:]
 
-    // TODO document constructor
+    /**
+      Authenticate with a Vault instance using a basic token credential.  This
+      constructor is provided for simplicity and testing.  However, AppRole
+      authentication is recommended, instead.
+      <h2>Example usage</h2>
+<pre><code>
+import net.gleske.jervis.remotes.interfaces.TokenCredential
+import net.gleske.jervis.remotes.VaultService
+
+TokenCredential creds = [getToken: {-> 'some vault token' }] as TokenCredential
+VaultService vault = new VaultService('http://vault:8200/', creds)
+
+// ready to perform vault operations
+vault.discoverKVMounts()
+vault.mountVersions
+</code></pre>
+      */
     VaultService(String vault_url, TokenCredential credential) {
-        this.vault_url = addTrailingSlash(vault_url)
-        if(!this.vault_url.endsWith('v1/')) {
-            this.vault_url += 'v1/'
-        }
+        this.vault_url = addTrailingSlash(vault_url, 'v1/')
         this.credential = credential
     }
-    // TODO document constructor
+    /**
+      Authenticate with Vault using AppRole authentication via
+      <tt>{@link net.gleske.jervis.remotes.creds.VaultAppRoleCredential}</tt>.
+      Any valid
+      <tt>{@link net.gleske.jervis.remotes.interfaces.VaultCredential}</tt>
+      could be provided.
+      */
     VaultService(VaultCredential credential) {
         this(credential.vault_url, credential)
     }
+
+    /**
+      Query Vault to find all of the KV mounts.  This can be called immediately
+      following the constructor to initiate service connectivity.  For KV v2
+      mounts, this will check the mount config to see if
+      <a href="https://developer.hashicorp.com/vault/tutorials/secrets-management/versioned-kv#step-8-check-and-set-operations" target=_blank>Check and Set</a>
+      is required.  If you want to skip this check, then set cas_required List
+      with all KV v2 mounts.
+
+      <h5>Example of skipping CAS check on a KV v2 mount</h5>
+<pre><code>
+VaultService vault = new VaultService(...)
+// Avoid cas check by setting cas_required before discovering mount version.
+vault.cas_required = ['kv']
+vault.discoverKVMounts()
+</code></pre>
+
+      */
+    void discoverKVMounts() throws IOException, VaultException {
+        apiFetch("sys/mounts").with { Map mounts ->
+            mounts.findAll { k, v ->
+                v in Map && v.type == 'kv'
+            }.each { k, v ->
+                String mount = k.replaceAll('/$', '')
+                setMountVersions(mount, v.options.version)
+                if(!isKeyValueV2(mount) || mount in this.cas_required) {
+                    return
+                }
+                Boolean isCasRequired = apiFetch(mount + '/config').data.cas_required
+                if(isCasRequired) {
+                    this.cas_required << mount
+                }
+            }
+        }
+    }
+
 
     /**
       Resolves the API base URL to be used by
@@ -295,13 +446,23 @@ vault.mountVersions = versions</tt></pre>
         tempHeaders
     }
 
-    // TODO docs
-    // TODO test alternate syntax
-    // TODO test exception throwing
+    /**
+       Get secret from a KV v1 or KV v2 secret engine.
+
+      @param location A location map contains two keys: mount and path.  The
+                      mount is a KV mount in Vault and the path is a location of
+                      a secret relative to the given mount.
+       @param version Request a specific version of a secret.  If <tt>0</tt>,
+                      then the latest version is returned.  This option is
+                      ignored for KV v1 secrets engine.
+       @return Parsed JSON object content from a secret <tt>path</tt>.  If KV
+               v2 secrets engine and <tt>version</tt> was customized, then the
+               secret at that version is returned (if it exists).
+      */
     Map getSecret(Map location, Integer version = 0) {
         checkLocationMap(location)
         String mount = location.mount
-        String subpath = location.path
+        String subpath = location.path.replaceAll('^/', '')
         if(isKeyValueV2(mount)) {
             apiFetch("${mount}/data/${subpath}?version=${version}")?.data?.data
         }
@@ -311,8 +472,7 @@ vault.mountVersions = versions</tt></pre>
     }
 
     /**
-       Get secret from a KV v1 or KV v2 secret engine.  This method will
-       gracefully handle either KV v1 or KV v2.
+       Get secret from a KV v1 or KV v2 secret engine.
 
        @param path    A path to a secret JSON object to read from Vault.
        @param version Request a specific version of a secret.  If <tt>0</tt>,
@@ -322,35 +482,48 @@ vault.mountVersions = versions</tt></pre>
                v2 secrets engine and <tt>version</tt> was customized, then the
                secret at that version is returned (if it exists).
       */
-    // TODO test getting mount with a slash in its name
     Map getSecret(String path, Integer version = 0) {
-        String mount = path -~ '/.*$'
-        String subpath = path -~ '^[^/]+/'
-        getSecret(mount: mount, path: subpath, version)
+        getSecret(getLocationMapFromPath(path), version)
     }
 
-    // TODO test mounts which contain a slash... because Vault allows that
-    // TODO test exception throwing
+    /**
+      Set a secret in a KV v1 or KV v2 secret engine.
+
+      @param location A location map contains two keys: mount and path.  The
+                      mount is a KV mount in Vault and the path is a location of
+                      a secret relative to the given mount.
+      @param secret A secret to set at the given location in a Vault secret
+                    store.
+      @param enableCas Enable
+                       <a href="https://developer.hashicorp.com/vault/tutorials/secrets-management/versioned-kv#step-8-check-and-set-operations" target=_blank>Check and set</a>.
+                       This prevents unintentional overwriting of secrets.  This
+                       creates two requests: get current version of secret to be
+                       written, write secret with version set.  If the secret
+                       being set has been altered, then it will have a different
+                       version and Vault will reject the request..
+      */
     void setSecret(Map location, Map secret, Boolean enableCas = false) {
         checkLocationMap(location)
         String mount = location.mount
-        String subpath = location.path
+        String subpath = location.path.replaceAll('^/', '')
         if(isKeyValueV2(mount)) {
+            Map data = [data: secret]
             Map secretMeta = [:]
-            try {
-                secretMeta = apiFetch("${mount}/metadata/${subpath}")
-            } catch(IOException e) {}
-            if(secretMeta?.data?.cas_required) {
+            if(mount in cas_required) {
                 enableCas = true
             }
-            Map data = [data: secret]
             if(enableCas) {
+                try {
+                    secretMeta = apiFetch("${mount}/metadata/${subpath}") ?: [:]
+                } catch(IOException ignored) {
+                    // 40X exceptions for invalid paths ignored
+                }
                 data['options'] = [cas: (secretMeta?.data?.current_version ?: 0)]
             }
-            apiFetch("${mount}/data/${subpath}", [:], 'POST', objToJson(data))
+            apiFetch("${mount}/data/${subpath}", [:], 'POST', data)
         }
         else {
-            apiFetch("${mount}/${subpath}", [:], 'POST', objToJson(secret))
+            apiFetch("${mount}/${subpath}", [:], 'POST', secret)
         }
     }
 
@@ -363,15 +536,16 @@ vault.mountVersions = versions</tt></pre>
       @param path      The destination to write the <tt>secret</tt>.
       @param secret    A Map converted to a JSON Object written to the Vault
                        <tt>path</tt>.
-      @param enableCas If enabled, a
-                       <a href="https://learn.hashicorp.com/tutorials/vault/versioned-kv#step-8-check-and-set-operations" target="_blank">Check-and-Set operation</a>
-                       is performed when writing to Vault.
+      @param enableCas Enable
+                       <a href="https://developer.hashicorp.com/vault/tutorials/secrets-management/versioned-kv#step-8-check-and-set-operations" target=_blank>Check and set</a>.
+                       This prevents unintentional overwriting of secrets.  This
+                       creates two requests: get current version of secret to be
+                       written, write secret with version set.  If the secret
+                       being set has been altered, then it will have a different
+                       version and Vault will reject the request..
       */
-    // TODO write tests
     void setSecret(String path, Map secret, Boolean enableCas = false) {
-        String mount = path -~ '/.*$'
-        String subpath = path -~ '^[^/]+/'
-        setSecret(mount: mount, path: subpath, secret, enableCas)
+        setSecret(getLocationMapFromPath(path), secret, enableCas)
     }
 
     /**
@@ -383,13 +557,11 @@ vault.mountVersions = versions</tt></pre>
                      v2 secrets engine.  Any type is allowed to catch invalid
                      version setting.
       */
-    // TODO write tests
-    // TODO test manual mounts that have a slash in its name
     void setMountVersions(String mount, def version) {
-        if(!(version in ['1', '2'])) {
-            throw new JervisException('Error: Vault key-value mounts can only be version "1" or "2" (String).')
+        if(!(version in ['1', '2', 1, 2])) {
+            throw new VaultException('Vault key-value mounts can only be version "1" or "2".')
         }
-        this.mountVersions[mount] = version
+        this.mountVersions[mount] = version.toString()
     }
 
     /**
@@ -399,70 +571,328 @@ vault.mountVersions = versions</tt></pre>
       @param mountVersions A Key-Value map containing multiple Vault mounts and
                            respective version numbers.
       */
-    // TODO write tests
     void setMountVersions(Map mountVersions) {
         mountVersions.each { k, v ->
             this.setMountVersions(k, v)
         }
     }
 
-    // TODO: java doc
-    // TODO write tests
-    // TODO support Map location
-    List listPath(String path) {
-        path = addTrailingSlash(path)
-        String mount = path -~ '/.*$'
-        String subpath = path -~ '^[^/]+/'
+    /**
+      Given a path this method will return the Vault secrets mount.
+
+      @param path A path to a secret in Vault.  The path includes the KV v1 or
+                  KV v2 secret engine mount path.
+      @return The key-value mount in Vault where the path is stored.
+      */
+    String getMountFromPath(String path) throws VaultException {
+        if(!mountVersions) {
+            throw new VaultException('No mounts available.  Did you call discoverKVMounts() method?')
+        }
+        // returns a mount
+        String mount = mountVersions.keySet().toList().find { String mount ->
+            path.startsWith(mount + '/') || path == mount
+        }
+        if(mount == null) {
+            throw new VaultException('Provided path does not match any existing mounts.  For path: ' + path)
+        }
+        mount
+    }
+
+    /**
+      Given a path representing the full path including a mount and secret path,
+      only the location relative to the parent mount is returned.
+
+      @param path A path to a secret in Vault.  The path includes the KV v1 or
+                  KV v2 secret engine mount path.
+      @return Returns a relative location of a secret.  It is relative to the
+              mount and does not include the mount in the return value.
+      */
+    String getLocationFromPath(String path) {
+        String mount = getMountFromPath(path)
+        if(!path.contains('/')) {
+            return ''
+        }
+        (path -~ "^\\Q${mount}\\E/")
+    }
+
+    /**
+      If given a full path to a secret in Vault, a location Map is returned.
+
+      @param path A String representing a valid path to a Vault secret including
+                  its secret engine mount.
+      @return A location map with two keys: mount and path.  The mount is a KV
+              mount in Vault and the path is a location of a secret relative to
+              the given mount.
+      */
+    Map getLocationMapFromPath(String path) {
+        Map location = [
+            mount: getMountFromPath(path),
+            path: getLocationFromPath(path)
+        ]
+        checkLocationMap(location)
+        location
+    }
+
+    /**
+      If given a location Map it will convert it to a String path for Vault APIs.
+
+      @param location A map with two keys: mount and path.  The mount is a KV
+                      mount in Vault and the path is a location of a secret
+                      relative to the given mount.
+      @return Returns a String representing a valid path to a Vault secret including its secret engine mount.
+      */
+    String getPathFromLocationMap(Map location) {
+        checkLocationMap(location)
+        [location.mount, location.path.replaceAll('^/', '')].join('/')
+    }
+
+    /**
+      List a path in Vault to find KV secret entries.
+
+      @param location A map with two keys: mount and path.  The mount is a KV
+                      mount in Vault and the path is a location of a secret
+                      relative to the given mount.
+      @return Returns a List of secrets for a given path.  If the entry ends
+              with a slash <tt>/</tt> then it is a subfolder for listing more secrets.
+      */
+    List listPath(Map location) {
+        checkLocationMap(location)
+        String mount = location.mount
+        String subpath = (location.path) ? addTrailingSlash(location.path).replaceAll('^/', '') : ''
 
         if(isKeyValueV2(mount)) {
-            apiFetch("${mount}/metadata/${subpath}?list=true")?.data?.keys
+            apiFetch("${mount}/metadata/${subpath}", [:], 'LIST')?.data?.keys
         }
         else {
             // KV v1 API call here
-            apiFetch("${mount}/${subpath}?list=true")?.data?.keys
+            apiFetch("${mount}/${subpath}", [:], 'LIST')?.data?.keys
         }
+    }
+
+    /**
+      List a path in Vault to find KV secret entries.
+
+      @param path A path in Vault including the KV store mount.
+      @return Returns a List of secrets for a given path.  If the entry ends
+              with a slash <tt>/</tt> then it is a subfolder for listing more secrets.
+      */
+    List listPath(String path) {
+        listPath(getLocationMapFromPath(path))
     }
 
     /**
       Recursively traverses the path for subkeys.  If level is 0 then there's
       no depth limit.  When level = n, keys are traversed up to the limit.
 
-      TODO better java doc
+      <p>A trailing slash <tt>/</tt> is optional and will have different
+      behavior depending on the existence of keys in Vault. For example, let's
+      say Vault has the following key layout.  <tt>kv</tt> is a KV v2 and
+      <tt>secret</tt> is a KV v1 secrets engine.</p>
+<pre><code>
+kv/
+  |- foo
+  |- foo/
+    |- bar
+  |- bar/
+    |- baz
+  |- hello/
+    |- world
+      |- friend
+secret/
+  |- foo
+  |- foo/
+    |- bar
+</code></pre>
+
+    <p>findAllKeys operates on both KV v1 and KV v2 secrets engines the same
+    way.</p>
+
+    <ul>
+    <li>
+    Calling <tt>findAllKeys('kv/foo')</tt> will return <tt>['kv/foo', 'kv/foo/bar']</tt>.
+    </li>
+    <li>
+    Calling <tt>findAllKeys('kv/foo/')</tt> will return <tt>['kv/foo/bar']</tt>.
+    </li>
+    <li>
+    Calling <tt>findAllKeys('secret/foo')</tt> will return <tt>['secret/foo', 'secret/foo/bar']</tt>.
+    </li>
+    <li>
+    Calling <tt>findAllKeys('secret/foo/')</tt> will return <tt>['secret/foo/bar']</tt>.
+    </li>
+    </ul>
+      <p>Given <tt>level</tt> parameter and the layout of the <tt>kv</tt> KV v2
+      secrets store from earlier.  You can expect the following behavior when
+      passing different integers of level.</tt>
+      <ul>
+      <li>
+      Calling <tt>myvault.findAllKeys('kv', 0)</tt> returns a list of all keys in the entire keystore.
+      </li>
+      <li>
+      Calling <tt>myvault.findAllKeys('kv', 1)</tt> returns <tt>['foo']</tt>.
+      </li>
+      <li>
+      Calling <tt>myvault.findAllKeys('kv/foo', 1)</tt> returns <tt>['foo', 'foo/bar']</tt>.
+      </li>
+      <li>
+      Calling <tt>myvault.findAllKeys('kv/foo/', 1)</tt> returns <tt>['foo/bar']</tt>.
+      </li>
+      <li>
+      Calling <tt>myvault.findAllKeys('kv', 2)</tt> returns <tt>['foo',
+      'foo/bar', 'bar/baz']</tt>.  Notice that key <tt>hello/world/friend</tt>
+      is not in the list because it is 3 levels deep.
+      </li>
+      </ul>
       */
-    // TODO write tests
-    // TODO support Map location
-    List<String> findAllKeys(String path, Integer level = 0) {
-        path = addTrailingSlash(path)
-        recursiveFindAllKeys(path, level, 1)
+    List<String> findAllKeys(Map location, Integer level = 0) throws IOException {
+        checkLocationMap(location)
+        String mount = location.mount
+        String subpath = location.path.replaceAll('^/', '')
+        List additionalKeys = []
+        if(subpath) {
+            // check if a key exists instead of a path
+            if(!subpath.endsWith('/')) {
+                String path = getPathFromLocationMap(location)
+                String parentPath = ''
+                if(subpath.contains('/')) {
+                    parentPath = subpath.tokenize('/')[0..-2].join('/') + '/'
+                }
+                if(path in findAllKeys([mount: mount, path: parentPath], 1)) {
+                    additionalKeys << getPathFromLocationMap(location)
+                }
+            }
+            subpath = addTrailingSlash(subpath)
+        }
+        additionalKeys + recursiveFindAllKeys([mount: mount, path: subpath], level, 1)
     }
 
     /**
-      Copies the contents of secret from a source key, srcKey, to the
-      destination key, destKey.  Optional argument srcVersion allows you to
-      select a specific version from a Key-Value v2 engine (default is get
-      latest version of secret).
+      Recursively traverses the path for subkeys.  If level is 0 then there's
+      no depth limit.  When level = n, keys are traversed up to the limit.
 
-      TODO better java doc
+      <p>To learn more see <tt>{@link #findAllKeys(java.util.Map, java.lang.Integer)}</tt>.</p>
+      @param location A location map contains two keys: mount and path.  The
+                      mount is a KV mount in Vault and the path is a location of
+                      a secret relative to the given mount.
+      @param level When traversing secrets paths <tt>level</tt> limits how deep
+                   the path goes when returning results.
       */
-    // TODO write tests
-    // TODO support Map location
+    List<String> findAllKeys(String path, Integer level = 0) throws IOException {
+        findAllKeys(getLocationMapFromPath(path), level)
+    }
+
+    /**
+      Copies the contents of secret from a source key to the destination key.
+      Optional argument srcVersion allows you to select a specific version from
+      a Key-Value v2 engine (default is get latest version of secret).
+
+      @param srcKey The source key to copy from.
+      @param destKey The destination key to copy to.
+      @param srcVersion The version to select in the source key if the
+                        <tt>srcKey</tt> is a KV v2 secrets engine.  By default
+                        it will get the latest version.  This option is ignored
+                        if <tt>srcKey</tt> is a KV v1 secrets engine.
+      */
     void copySecret(String srcKey, String destKey, Integer srcVersion = 0) {
         setSecret(destKey, getSecret(srcKey, srcVersion), true)
     }
 
     /**
-      Recursively copies all secrets from the source path, srcPath, to the
-      destination path, destPath.
+      Copies the contents of secret from a source key to the destination key
+      using location maps.  Optional argument srcVersion allows you to select a
+      specific version from a Key-Value v2 engine (default is get latest version
+      of secret).
 
-      TODO better java doc
+      @param srcLocation The source to copy from.  A location map contains two
+                         keys: mount and path.  The mount is a KV mount in Vault
+                         and the path is a location of a secret relative to the
+                         given mount.
+      @param destLocation The destination key to copy to.  See
+                          <tt>srcLocation</tt> for definition of a location.
+      @param srcVersion The version to select in the source key if the
+                        <tt>srcLocation</tt> is a KV v2 secrets engine.  By
+                        default it will get the latest version.  This option is
+                        ignored if <tt>srcLocation</tt> is a KV v1 secrets
+                        engine.
       */
-    // TODO write tests
-    // TODO support Map location for both srcPath and destPath
-    void copyAllKeys(String srcPath, String destPath, Integer level = 0) {
-        findAllKeys(srcPath, level).each { String srcKey ->
-            String destKey = destPath + (srcKey -~ "^\\Q${srcPath}\\E")
-            copySecret(srcKey, destKey)
+    void copySecret(Map srcLocation, Map destLocation, Integer srcVersion = 0) {
+        setSecret(destLocation, getSecret(srcLocation, srcVersion), true)
+    }
+
+    /**
+      Recursively copies all secrets from the source location,
+      <tt>srcLocation</tt>, to the destination location, <tt>destLocation</tt>.
+
+      <ul>
+      <li>
+        If the <tt>srcLocation.path</tt> has a trailing slash, then only folders
+        will be considered.  e.g. <tt>foo/</tt> will only match
+        <tt>foo/*</tt>keys.  If it does not contain a trailing slash, then it
+        may include a key that is the same name as the foloder path.  e.g.
+        <tt>foo</tt> will match key <tt>foo</tt> and folder <tt>foo/*</tt>.
+      </li>
+      <li>
+        If the <tt>destLocation.path</tt> has a trailing slash, then keys will
+        be copied as is to the subfolder of the destination.  If it does not
+        contain a trailing slash, then matched keys will be renamed.
+      </li>
+      </ul>
+
+      @param srcLocation A location map contains two keys: mount and path.  The
+                         mount is a KV mount in Vault and the path is a location
+                         of a secret relative to the given mount.
+      @param destLocation A location map contains two keys: mount and path.  The
+                          mount is a KV mount in Vault and the path is a
+                          location of a secret relative to the given mount.
+      @param level When traversing secrets paths <tt>level</tt> limits how deep
+                   the path goes when returning results.
+      */
+    void copyAllKeys(Map srcLocation, Map destLocation, Integer level = 0) {
+        checkLocationMap(srcLocation)
+        checkLocationMap(destLocation)
+        String srcPath = srcLocation.path.replaceAll('^/', '')
+        String destPath = destLocation.path.replaceAll('^/', '')
+        findAllKeys(srcLocation, level).each { String srcKey ->
+            Map srcKeyLocation = getLocationMapFromPath(srcKey)
+            Map destKeyLocation = [
+                mount: destLocation.mount,
+                path: destPath + (srcKeyLocation.path -~ "^\\Q${srcPath}\\E")
+            ]
+            if(destPath.endsWith('/')) {
+                destKeyLocation.path = destPath + srcKeyLocation.path
+            }
+            copySecret(srcKeyLocation, destKeyLocation)
         }
+    }
+
+    /**
+      Recursively copies all secrets from the source location, <tt>srcPaht</tt>,
+      to the destination location, <tt>destPath</tt>.
+
+      <ul>
+      <li>
+        If the <tt>srcPath</tt> has a trailing slash, then only folders will be
+        considered.  e.g. <tt>foo/</tt> will only match <tt>foo/*</tt>keys.  If
+        it does not contain a trailing slash, then it may include a key that is
+        the same name as the foloder path.  e.g.  <tt>foo</tt> will match key
+        <tt>foo</tt> and folder <tt>foo/*</tt>.
+      </li>
+      <li>
+        If the <tt>destPath</tt> has a trailing slash, then keys will be copied
+        as is to the subfolder of the destination.  If it does not contain a
+        trailing slash, then matched keys will be renamed.
+      </li>
+      </ul>
+
+      @param srcPath A path to a secret in Vault.  The path includes the KV v1
+                     or KV v2 secret engine mount path.
+      @param destPath A path to a secret in Vault.  The path includes the KV v1
+                      or KV v2 secret engine mount path.
+      @param level When traversing secrets paths <tt>level</tt> limits how deep
+                   the path goes when returning results.
+      */
+    void copyAllKeys(String srcPath, String destPath, Integer level = 0) {
+        copyAllKeys(getLocationMapFromPath(srcPath), getLocationMapFromPath(destPath), level)
     }
 
     /**
@@ -470,74 +900,112 @@ vault.mountVersions = versions</tt></pre>
       variables.  The key and value returned in the Map will always be type
       String.
 
-      TODO better java doc
+      @param location A location map contains two keys: mount and path.  The
+                      mount is a KV mount in Vault and the path is a location of
+                      a secret relative to the given mount.
+      @param version Request a specific version of a secret.  If <tt>0</tt>,
+                     then the latest version is returned.  This option is
+                     ignored for KV v1 secrets engine.
+      @param allowInvalidKeys Allow key names which are valid String keys but
+                              invalid bash environment variables.
+      @return A filtered Map containing only valid key-value pairs given the
+              above parameters when a secret is pulled from Vault.  Map is
+              sorted by key name.
       */
-    // TODO write tests
-    // TODO support Map location
-    Map<String, String> getEnvironmentSecret(String path, Integer version = 0, Boolean allowInvalidKeys = false) {
-        getSecret(path, version).findAll { k, v ->
-            k in String &&
+    Map<String, String> getEnvironmentSecret(Map location, Integer version = 0, Boolean allowInvalidKeys = false) {
+        getSecret(location, version).findAll { k, v ->
             (k ==~ '^[a-zA-Z0-9_]+$' || allowInvalidKeys) && (
                 v in String ||
                 v in Boolean ||
                 v in Number
             )
-        }.collect { k, v ->
+        }?.collect { k, v ->
             [(k): v.toString()]
-        }.sum() ?: [:]
+        }?.sum()?.sort() ?: [:]
     }
 
     /**
       Returns a Map of key-value pairs compatible with bash environment
-      variables.  Given a list of paths, they'll be combined with the end of
-      the list taking precedence over the beginning of  the list.  When
-      combining the Maps, the last Key-Value pair wins when key names conflict.
+      variables.  The key and value returned in the Map will always be type
+      String.
 
-      @param paths            A List of paths to search Vault for Maps.  Maps
-                              are eventually combined.  A path can be a String
-                              or a location Map.  A location Map includes a
-                              mount and path key e.g.
-                              <tt>[mount: 'kv', path: 'my/secret/path']</tt>.
+      @param path A path to a secret in Vault.  The path includes the KV v1 or
+                  KV v2 secret engine mount path.
+      @param version Request a specific version of a secret.  If <tt>0</tt>,
+                     then the latest version is returned.  This option is
+                     ignored for KV v1 secrets engine.
       @param allowInvalidKeys Includes keys which have invalid bash variable
                               names.  This might be useful for additional logic
                               processing.
-      @return Returns a Map which is the sum of all of the keys provided.
-
-      TODO better java doc
+      @return A filtered Map containing only valid key-value pairs given the
+              above parameters when a secret is pulled from Vault.  Map is
+              sorted by key name.
       */
-    // TODO write tests
-    // TODO support Map location
+    Map<String, String> getEnvironmentSecret(String path, Integer version = 0, Boolean allowInvalidKeys = false) {
+        getEnvironmentSecret(getLocationMapFromPath(path), version, allowInvalidKeys)
+    }
+
+    /**
+      Returns a Map of key-value pairs compatible with bash environment
+      variables.  Given a list of paths, they'll be combined with the end of the
+      list taking precedence over the beginning of the list.  When combining the
+      Maps, the last Key-Value pair wins when key names conflict.
+
+      @param paths A List of paths to search Vault for Maps.  Maps are
+                   eventually combined.  A path can be a String or a location
+                   Map.  A location Map includes a mount and path key e.g.
+                   <tt>[mount: 'kv', path: 'my/secret/path']</tt>.
+      @param allowInvalidKeys Includes keys which have invalid bash variable
+                              names.  This might be useful for additional logic
+                              processing.
+      @return A filtered Map containing only valid key-value pairs given the
+              above parameters when a secret is pulled from Vault.  Map is
+              sorted by key name.
+      */
     Map<String, String> getEnvironmentSecrets(List paths, Boolean allowInvalidKeys = false) {
-        paths.collect { String path ->
+        paths.collect { path ->
             try {
                 getEnvironmentSecret(path, 0, allowInvalidKeys)
-            } catch(FileNotFoundException e) {
+            }
+            catch(IOException ignored) {
                 [:]
             }
-        }.sum()
+        }.sum().sort()
     }
 
     /**
       Deletes data from a KV v1 or KV v2 secrets engine.
-      @param key
-      @param destroyVersions
-      @param destroyAllVersions Permanently deletes the key metadata and all
-                                version data for the specified <tt>key</tt>.
-                                When enabled, <tt>destroyVersions</tt> is
-                                ignored.  This option is ignored for KV v1
+
+      @param location A location map contains two keys: mount and path.  The
+                      mount is a KV mount in Vault and the path is a location of
+                      a secret relative to the given mount.
+      @param destroyVersions When a key has multiple versions you might want to
+                             only delete a specific version.  Pass in a list of
+                             version numbers and only those versions of the
+                             secret will be deleted or destroyed.
+      @param destroyAllVersions Permanently deletes a secret.  If no
+                                <tt>destroyVersions</tt> are given, then all
+                                secret metadata and versions will be permanently
+                                deleted.  If specific <tt>destroyVersions</tt>
+                                are given, then those specific versions are
+                                permanently destroyed so they can't be
+                                un-deleted.  This option is ignored for KV v1
                                 secrets engine.
       */
-    /* TODO work in progress
-    // TODO write tests
-    void deleteKey(String key, List<Integer> destroyVersions = [], Boolean destroyAllVersions = false) {
-        String mount = path -~ '/.*$'
-        String subpath = path -~ '^[^/]+/'
+    void deleteSecret(Map location, List<Integer> deleteVersions, Boolean destroyAllVersions = false) {
+        checkLocationMap(location)
+        String mount = location.mount
+        String subpath = location.path.replaceAll('^/', '')
+        if(subpath.trim().endsWith('/') || !subpath.trim()) {
+            throw new VaultException('Must provide a valid key to be deleted.  Paths are not allowed.')
+        }
         if(isKeyValueV2(mount)) {
-            if(destroyAllVersions) {
-                apiFetch("${mount}/metadata/${subpath}", [:], 'DELETE')
+            if(deleteVersions) {
+                String deleteVersions_api = destroyAllVersions ? 'destroy' : 'delete'
+                apiFetch("${mount}/${deleteVersions_api}/${subpath}", [:], 'POST', [versions: deleteVersions])
             }
-            else if(destroyVersions) {
-                apiFetch("${mount}/destroy/${subpath}", [:], 'DELETE', objToJson([versions: destroyVersions]))
+            else if(destroyAllVersions) {
+                apiFetch("${mount}/metadata/${subpath}", [:], 'DELETE')
             }
             else {
                 // soft delete
@@ -545,44 +1013,221 @@ vault.mountVersions = versions</tt></pre>
             }
         }
         else {
-            apiFetch(path, [:], 'DELETE')
+            apiFetch(getPathFromLocationMap(location), [:], 'DELETE')
         }
     }
-    */
 
     /**
       Deletes data from a KV v1 or KV v2 secrets engine.
-      @param path
-      @param level
+
+      @param location A location map contains two keys: mount and path.  The
+                      mount is a KV mount in Vault and the path is a location of
+                      a secret relative to the given mount.
+      @param destroyAllVersions Permanently deletes a secret.  If no
+                                <tt>destroyVersions</tt> are given, then all
+                                secret metadata and versions will be permanently
+                                deleted.  If specific <tt>destroyVersions</tt>
+                                are given, then those specific versions are
+                                permanently destroyed so they can't be
+                                un-deleted.  This option is ignored for KV v1
+                                secrets engine.
+      */
+    void deleteSecret(Map location, Boolean destroyAllVersions = false) {
+        deleteSecret(location, [], destroyAllVersions)
+    }
+
+    /**
+      Deletes data from a KV v1 or KV v2 secrets engine.
+
+      @param path A path to a secret in Vault.  The path includes the KV v1 or
+                  KV v2 secret engine mount path.
+      @param destroyVersions When a key has multiple versions you might want to
+                             only delete a specific version.  Pass in a list of
+                             version numbers and only those versions of the
+                             secret will be deleted or destroyed.
+      @param destroyAllVersions Permanently deletes a secret.  If no
+                                <tt>destroyVersions</tt> are given, then all
+                                secret metadata and versions will be permanently
+                                deleted.  If specific <tt>destroyVersions</tt>
+                                are given, then those specific versions are
+                                permanently destroyed so they can't be
+                                un-deleted.  This option is ignored for KV v1
+                                secrets engine.
+      */
+    void deleteSecret(String path, List<Integer> destroyVersions, Boolean destroyAllVersions = false) {
+        deleteSecret(getLocationMapFromPath(path), destroyVersions, destroyAllVersions)
+    }
+
+    /**
+      Deletes data from a KV v1 or KV v2 secrets engine.
+
+      @param path A path to a secret in Vault.  The path includes the KV v1 or
+                  KV v2 secret engine mount path.
+      @param destroyAllVersions Permanently deletes a secret.  If no
+                                <tt>destroyVersions</tt> are given, then all
+                                secret metadata and versions will be permanently
+                                deleted.  If specific <tt>destroyVersions</tt>
+                                are given, then those specific versions are
+                                permanently destroyed so they can't be
+                                un-deleted.  This option is ignored for KV v1
+                                secrets engine.
+      */
+    void deleteSecret(String path, Boolean destroyAllVersions = false) {
+        deleteSecret(getLocationMapFromPath(path), [], destroyAllVersions)
+    }
+
+    /**
+      Recursively deletes a path of keys including all child keys from a KV v1
+      or KV v2 secrets engine.  The trailing slash on <tt>location.path</tt>
+      behaves similarly to
+      <tt>{@link #findAllKeys(java.util.Map, java.lang.Integer)}</tt>.
+
+      @param location A location map contains two keys: mount and path.  The
+                      mount is a KV mount in Vault and the path is a location of
+                      a secret relative to the given mount.
+      @param level When traversing secrets paths <tt>level</tt> limits how deep
+                   the path goes when returning results.
       @param destroyAllVersions Permanently deletes the key metadata and all
                                 version data for the specified <tt>key</tt>.
                                 When enabled, <tt>destroyVersions</tt> is
                                 ignored.  This option is ignored for KV v1
                                 secrets engine.
       */
-    /* TODO work in progress
-    // TODO write tests
-    void deleteKey(String key, List<Integer> destroyVersions = [], Boolean destroyAllVersions = false) {
-    void deletePath(String path, Boolean level = 0, Boolean destroyAllVersions = false) {
-        findAllKeys(path, level).sort { String a, String b ->
+    void deletePath(Map location, Integer level, Boolean destroyAllVersions = false) {
+        checkLocationMap(location)
+        findAllKeys(location, level).sort { String a, String b ->
             // performs a reverse sort to list maximum depth at the beginning
             // of the list.  Depth is defined as the number of '/' in the path.
             b.count('/') <=> a.count('/')
         }.each { String key ->
-            deleteKey(key)
+            // Performs a soft delete by default or destroys all versions
+            deleteSecret(key, destroyAllVersions)
         }
     }
-    */
 
-    // TODO implement DELETE key
-    /* TODO implement recursive DELETE path
-           Reverse sort showing deepest depth keys first in the list
-           ['a', 'a/b/c', 'a/b', 'a/b/c/d'].sort { a, b -> b.count('/') <=> a.count('/') }
-           returns ['a/b/c/d', 'a/b/c', 'a/b', 'a']
-     */
-    // TODO implement combining path of keys into a List of Maps?  This might not be useful.
-    // TODO organize private methods to bottom of class
-    // TODO add Vault exception higherarchy?
-    // TODO getSecretsAsList should return a combined list matching the order of the input keys.
-    // TODO getSecretsAsMap should return a Key-Value Map where the key is the secret key and value is contents of the secret.
+    /**
+      Recursively deletes a path of keys including all child keys from a KV v1
+      or KV v2 secrets engine.  The trailing slash on <tt>location.path</tt>
+      behaves similarly to
+      <tt>{@link #findAllKeys(java.util.Map, java.lang.Integer)}</tt>.
+
+      @param location A location map contains two keys: mount and path.  The
+                      mount is a KV mount in Vault and the path is a location of
+                      a secret relative to the given mount.
+      @param destroyAllVersions Permanently deletes the key metadata and all
+                                version data for the specified <tt>key</tt>.
+                                When enabled, <tt>destroyVersions</tt> is
+                                ignored.  This option is ignored for KV v1
+                                secrets engine.
+      */
+    void deletePath(Map location, Boolean destroyAllVersions = false) {
+        deletePath(location, 0, destroyAllVersions)
+    }
+
+    /**
+      Recursively deletes a path of keys including all child keys from a KV v1
+      or KV v2 secrets engine.  The trailing slash on <tt>path</tt> behaves
+      similarly to
+      <tt>{@link #findAllKeys(java.util.Map, java.lang.Integer)}</tt>.
+
+      @param path A path to a secret in Vault.  The path includes the KV v1 or
+                  KV v2 secret engine mount path.
+      @param destroyAllVersions Permanently deletes the key metadata and all
+                                version data for the specified <tt>key</tt>.
+                                When enabled, <tt>destroyVersions</tt> is
+                                ignored.  This option is ignored for KV v1
+                                secrets engine.
+      */
+    void deletePath(String path, Boolean destroyAllVersions = false) {
+        deletePath(path, 0, destroyAllVersions)
+    }
+
+    /**
+      Recursively deletes a path of keys including all child keys from a KV v1
+      or KV v2 secrets engine.  The trailing slash on <tt>path</tt> behaves
+      similarly to
+      <tt>{@link #findAllKeys(java.util.Map, java.lang.Integer)}</tt>.
+
+      @param path A path to a secret in Vault.  The path includes the KV v1 or
+                  KV v2 secret engine mount path.
+      @param level When traversing secrets paths <tt>level</tt> limits how deep
+                   the path goes when returning results.
+      @param destroyAllVersions Permanently deletes the key metadata and all
+                                version data for the specified <tt>key</tt>.
+                                When enabled, <tt>destroyVersions</tt> is
+                                ignored.  This option is ignored for KV v1
+                                secrets engine.
+      */
+    void deletePath(String path, Integer level, Boolean destroyAllVersions = false) {
+        deletePath(getLocationMapFromPath(path), level, destroyAllVersions)
+    }
+
+    /**
+      Check if a secret is deleted by attempting to retrieve it or check its
+      status.  A secret could be in one of three states: non-existent, deleted
+      (recoverable), and destroyed (exists but not recoverable).
+
+      @param location A location map contains two keys: mount and path.  The
+                      mount is a KV mount in Vault and the path is a location of
+                      a secret relative to the given mount.
+       @param version Request a specific version of a secret.  If <tt>0</tt>,
+                      then the latest version is returned.  This option is
+                      ignored for KV v1 secrets engine.
+      @return Returns <tt>true</tt> if a key is non-existent in KV v1 or KV v2
+              secrets engines.  On a KV v2 secrets engine, will return
+              <tt>true</tt> if a secret exists but the version requested is
+              deleted or destroyed.  Otherwise, returns <tt>false</tt>.
+      */
+    Boolean isDeletedSecret(Map location, Integer version = 0) {
+        checkLocationMap(location)
+        String mount = location.mount
+        String subpath = location.path.replaceAll('^/', '')
+        if(subpath.endsWith('/') || !subpath.trim()) {
+            throw new VaultException('Cannot check if a path has been deleted.  Must provide a key i.e. not end with a trailing slash.')
+        }
+        Map metadata = [:]
+        try {
+            if(isKeyValueV2(mount)) {
+                metadata = apiFetch("${mount}/metadata/${subpath}").data
+            }
+            else {
+                getSecret(location)
+                return false
+            }
+        }
+        catch(IOException ignored) {
+            // The metadata path does not exist so safe to assume it is deleted.
+            return true
+        }
+        // KV v2 it exists but must verify it is not a soft delete.
+        if(!version) {
+            // check if current version is deleted
+            return metadata.versions[metadata.current_version.toString()].with { it.deletion_time || it.destroyed }
+        }
+        // If user asks for version that is not real, then report it as deleted
+        // since it is non-existent.
+        if(!(version.toString() in metadata.versions.keySet())) {
+            return true
+        }
+        metadata.versions[version.toString()].with { it.deletion_time || it.destroyed }
+    }
+
+    /**
+      Check if a secret is deleted by attempting to retrieve it or check its
+      status.  A secret could be in one of three states: non-existent, deleted
+      (recoverable), and destroyed (exists but not recoverable).
+
+      @param path A path to a secret in Vault.  The path includes the KV v1 or
+                  KV v2 secret engine mount path.
+       @param version Request a specific version of a secret.  If <tt>0</tt>,
+                      then the latest version is returned.  This option is
+                      ignored for KV v1 secrets engine.
+      @return Returns <tt>true</tt> if a key is non-existent in KV v1 or KV v2
+              secrets engines.  On a KV v2 secrets engine, will return
+              <tt>true</tt> if a secret exists but the version requested is
+              deleted or destroyed.  Otherwise, returns <tt>false</tt>.
+      */
+    Boolean isDeletedSecret(String path, Integer version = 0) {
+        isDeletedSecret(getLocationMapFromPath(path), version)
+    }
 }

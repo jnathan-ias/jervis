@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -15,7 +15,9 @@
    */
 /*
    This allows obtaining multiple independent resource locks from the lockable
-   resources plugin.
+   resources plugin.  This step will write variables to the run execution
+   binding because that's the only way it can store persistent data without
+   being a plugin.
 
    EXAMPLES
 
@@ -39,7 +41,7 @@
             int taskInt = i
             tasks["Task ${taskInt}"] = {
                 stage("Task ${taskInt}") {
-                    withLocks(obtain_lock: 'foo', limit: 3, index: taskInt) {
+                    withLocks(obtain_lock: 'foo', limit: 3) {
                         echo 'This is an example task being executed'
                         sleep(30)
                     }
@@ -159,14 +161,14 @@ int getLockLimit(Map settings, String lockName) {
 
 @NonCPS
 int getLockIndex(Map settings, String lockName) {
-    int lockIndex = -1
+    Integer lockIndex = -1
+    if(!('limit' in settings.keySet())) {
+        return lockIndex
+    }
     String lockKey = "${lockName}_index"
-    if(settings.containsKey(lockKey)) {
-        lockIndex = settings[lockKey]
-    }
-    else if(settings.containsKey('index')) {
-        lockIndex = settings.get('index')
-    }
+    def resolvedIndex = getUserBinding("jervis_${lockKey}".toString())
+    lockIndex = (resolvedIndex in Integer) ? resolvedIndex + 1 : 0
+    setUserBinding("jervis_${lockKey}".toString(), lockIndex)
     lockIndex
 }
 

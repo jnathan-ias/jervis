@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -39,16 +39,18 @@ String loadConfigFileResource(String resource) {
     }
 }
 
-String call(String resource) {
-    if(hasGlobalVar('adminLibraryResource')) {
-        echo "Load resource ${resource} from adminLibraryResource."
+@NonCPS
+String call(String resource, Boolean skipAdmin = false) {
+    if(!skipAdmin && hasGlobalVar('adminLibraryResource')) {
         adminLibraryResource(resource)
     }
     else if(loadConfigFileResource(resource)) {
-        echo "Load resource ${resource} from global config files."
         loadConfigFileResource(resource)
     }
-    else {
+    else if(hasGlobalResource(resource)) {
         libraryResource(resource)
+    }
+    else {
+        null
     }
 }

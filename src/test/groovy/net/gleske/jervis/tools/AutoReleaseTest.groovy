@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -14,12 +14,13 @@
    limitations under the License.
    */
 package net.gleske.jervis.tools
-//the AutoReleaseTest() class automatically sees the securityIO() class because they're in the same package
+//the AutoReleaseTest() class automatically sees the AutoRelease class because they're in the same package
 import net.gleske.jervis.exceptions.JervisException
+
+import java.text.SimpleDateFormat
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
-import java.text.SimpleDateFormat
 
 class AutoReleaseTest extends GroovyTestCase {
     @Test public void test_AutoRelease_fail_instantiation() {

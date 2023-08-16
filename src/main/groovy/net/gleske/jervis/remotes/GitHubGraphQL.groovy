@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -28,20 +28,21 @@ import static net.gleske.jervis.tools.AutoRelease.getScriptFromTemplate
    to bring up a <a href="http://groovy-lang.org/groovyconsole.html" target="_blank">Groovy Console</a> with the classpath set up.</p>
    <p>For more GraphQL samples see <a href="https://github.com/samrocketman/jervis/issues/133" target="_blank">Jervis issue number 133</a>.</p>
 
-<pre><tt>import net.gleske.jervis.remotes.GitHubGraphQL
+<pre><code>
+import net.gleske.jervis.remotes.GitHubGraphQL
 
 GitHubGraphQL github = new GitHubGraphQL()
 github.token = 'GitHub personal access token here with no scopes necessary'
 String graphql = '''
 query {
   repository(owner: "samrocketman", name: "jervis") {
-    jervisYaml:object(expression: "master:.jervis.yml") {
+    jervisYaml:object(expression: "main:.jervis.yml") {
       ...file
     }
-    travisYaml:object(expression: "master:.travis.yml") {
+    travisYaml:object(expression: "main:.travis.yml") {
       ...file
     }
-    rootFolder:object(expression: "master:") {
+    rootFolder:object(expression: "main:") {
       ...file
     }
   }
@@ -233,7 +234,7 @@ class GitHubGraphQL implements SimpleRestServiceSupport {
                         <a href="https://github.com/samrocketman/jervis" target="_blank"><tt>jervis</tt></a>.
       @param gitRefs    A list of get references (branches, tags, commits, etc)
                         in order to retrieve files.  By default, the value
-                        <tt>['refs/heads/master']</tt>.
+                        <tt>['refs/heads/main']</tt>.
       @param yamlFiles  A list of YAML files to try getting the Jervis YAML
                         contents from.  By default, the value is
                         <tt>['.jervis.yml', '.travis.yml']</tt>.
@@ -242,16 +243,19 @@ class GitHubGraphQL implements SimpleRestServiceSupport {
               example when calling with defaults.
 
               <p>Call with default arguments</p>
-<pre><tt>import net.gleske.jervis.remotes.GitHubGraphQL
+<pre><code>
+import net.gleske.jervis.remotes.GitHubGraphQL
 
 GitHubGraphQL github = new GitHubGraphQL()
 github.token = new File('../github_token').text.trim()
 
 
 // Make an API call to GitHub
-Map response = github.getJervisYamlFiles('samrocketman', 'jervis')</tt></pre>
+Map response = github.getJervisYamlFiles('samrocketman', 'jervis')
+</code></pre>
               <p>Responds with parsed data</p>
-<pre><tt>[
+<pre><code>
+[
     gitRef0: [
         jervisYaml0: null,
         jervisYaml1: [
@@ -270,7 +274,8 @@ Map response = github.getJervisYamlFiles('samrocketman', 'jervis')</tt></pre>
             ]
         ]
     ]
-]</tt></pre>
+]
+</code></pre>
               <p>The above response indicates there was no
               <tt>.jervis.yml</tt>, but there was a <tt>.travis.yml</tt>
               file.</p>
@@ -283,7 +288,7 @@ Map response = github.getJervisYamlFiles('samrocketman', 'jervis')</tt></pre>
       */
     public Map getJervisYamlFiles(String owner,
             String repository,
-            List gitRefs = ['refs/heads/master'],
+            List gitRefs = ['refs/heads/main'],
             List yamlFiles = ['.jervis.yml', '.travis.yml']) {
 
         Map binding = [
@@ -305,7 +310,7 @@ Map response = github.getJervisYamlFiles('samrocketman', 'jervis')</tt></pre>
                        <tt>samrocketman/jervis</tt>.
       @param gitRefs   A list of get references (branches, tags, commits, etc)
                        in order to retrieve files.  By default, the value
-                       <tt>['refs/heads/master']</tt>.
+                       <tt>['refs/heads/main']</tt>.
       @param yamlFiles A list of YAML files to try getting the Jervis YAML
                        contents from.  By default, the value is
                        <tt>['.jervis.yml', '.travis.yml']</tt>.
@@ -314,7 +319,7 @@ Map response = github.getJervisYamlFiles('samrocketman', 'jervis')</tt></pre>
               the other.
       */
     public Map getJervisYamlFiles(String repositoryWithOwner,
-            List gitRefs = ['refs/heads/master'],
+            List gitRefs = ['refs/heads/main'],
             List yamlFiles = ['.jervis.yml', '.travis.yml']) {
         if(!repositoryWithOwner.contains('/') || (repositoryWithOwner.tokenize('/').size() > 2)) {
             throw new JervisException("ERROR: getJervisYamlFiles recieved a malformated repositoryWithOwner ${repositoryWithOwner}.")

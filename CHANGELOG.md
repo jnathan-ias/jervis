@@ -3,9 +3,201 @@
 This file contains all of the notable changes from Jervis releases.  For the
 full change log see the commit log.
 
-# jervis 1.8
+# jervis 2.1
+
+:boom: Publishing bugfix - the published pom.xml for v2.0 did not have any
+dependencies listed.  This patch-release fixes the published pom.
+
+See Jervis 2.0 release notes for breaking changes.
+
+## Breaking changes
+
+And other critical notes.
+
+In `src/` folder:
+
+- `LifecycleGenerator.loadPlatforms` is renamed to
+  `LifecycleGenerator.loadPlatformsFile`
+- If you instantiate a `PipelineGenerator` with a `LifecycleGenerator`, the
+  `LifecycleGenerator` gets recreated from scratch.  This means you can't modify
+  your original `LifecycleGenerator` object with the expectation that
+  `PipelineGenerator.getGenerator()` is updated.  They're separate objects.
+- `PipelineGenerator.getDefaultToolchainsEnvironment()` will now always include
+  the platform and OS even if they're not used in matrix building.
+
+In `vars/` folder:
+
+- `loadCustomResource` var no longer throws an exception.  If a file does not
+  exist it will return `null` instead of String contents.
+
+## New features
+
+#### Jervis API changes in `src/` folder
+
+- `JervisException` now supports throwing with a supplemental message.
+
+#### Pipeline DSL scripts changes in the `vars/` folder
+
+TBD
+
+# jervis 2.0 - Jun 27th, 2023
+
+This is a new major release.  From an end user perspective, all behavior for 1.x
+and 0.x YAML files is still supported.  However, there are major API changes
+which warrant bumping the major to warn integrators who may be using code.
+
+### Migrating code
+
+You can use GNU `sed` to migrate code.  The following is a `sedfile` of
+expressions.
+
+```
+s/ \+$//
+s/pipelineGeneratorTest/PipelineGeneratorTest/g
+s/platformValidatorTest/PlatformValidatorTest/g
+s/lifecycleGeneratorTest/LifecycleGeneratorTest/g
+s/toolchainValidatorTest/ToolchainValidatorTest/g
+s/jervisConfigsTest/JervisConfigsTest/g
+s/lifecycleValidatorTest/LifecycleValidatorTest/g
+s/lintJenkinsVarsTest/LintJenkinsVarsTest/g
+s/securityIOTest/SecurityIOTest/g
+s/pipelineGenerator/PipelineGenerator/g
+s/lifecycleValidator/LifecycleValidator/g
+s/toolchainValidator/ToolchainValidator/g
+s/lifecycleGenerator/LifecycleGenerator/g
+s/platformValidator/PlatformValidator/g
+s/securityIO/SecurityIO/g
+s/net\.gleske\.jervis\.lang\.[Ll]ifecycleGenerator\([ .]getObjectValue\)/net.gleske.jervis.tools.YamlOperator\1/g
+s/generator\.getObjectValue/net.gleske.jervis.tools.YamlOperator.getObjectValue/g
+```
+
+Usage of the sedfile is the following.
+
+```bash
+find * -type f -name '*.groovy' -exec sed -i -f /tmp/sedfile {} +
+```
+
+Manually search for and change the following methods.  See [Major API changes
+section](#2.0-major-api-changes) for details.
+
+```bash
+# change id_rsa_keysize usage to rsa_keysize
+grep -r '\([gs]et\)\{0,1\}[Ii]d_rsa_keysize' *
+```
+
+Several Jenkins shared pipline vars have been converted to `NonCPS`.  This means
+upstream `admin*` functions must also be changed to `NonCPS`.  The following is
+an example of a NonCPS var.
+
+```groovy
+@NonCPS
+def call() {
+    // this method is NonCPS JIT compiled
+}
+```
+
+If you define `admin*` vars you'll have to convert them to NonCPS.  The
+following is a list of vars now requiring `NonCPS` annotation.
+
+- `vars/adminLibraryResource.groovy`; refer to
+  [`loadCustomResource`][loadCustomResource]
+
+### Migrating JSON to YAML
+
+platforms, lifecycles, and toolchains have migrated from JSON to YAML.  Users tend to define these files themselves.  As a result, [a migration script][migrate-yaml-platforms] has been created.  Run the migration script for your given prefix.
+
+[migrate-yaml-platforms]: https://github.com/samrocketman/jervis/issues/142#issuecomment-1605691587
+
+<a name="2.0-major-api-changes"></a>
+### Major API changes
+
+The following classes have been renamed.
+
+| Old name for imports                        | New name for imports                        |
+| ------------------------------------------- | ------------------------------------------- |
+| `net.gleske.jervis.lang.lifecycleGenerator` | `net.gleske.jervis.lang.LifecycleGenerator` |
+| `net.gleske.jervis.lang.lifecycleValidator` | `net.gleske.jervis.lang.LifecycleValidator` |
+| `net.gleske.jervis.lang.pipelineGenerator`  | `net.gleske.jervis.lang.PipelineGenerator`  |
+| `net.gleske.jervis.lang.platformValidator`  | `net.gleske.jervis.lang.PlatformValidator`  |
+| `net.gleske.jervis.lang.toolchainValidator` | `net.gleske.jervis.lang.ToolchainValidator` |
+| `net.gleske.jervis.tools.securityIO`        | `net.gleske.jervis.tools.SecurityIO`        |
+
+The following methods and fields have been renamed or removed.
+
+| Class                | Old method name       | New method name    |
+| -------------------- | --------------------- | ------------------ |
+| `LifecycleValidator` | `load_JSON()`         | `loadYamlFile()`   |
+| `LifecycleValidator` | `load_JSONString()`   | `loadYamlString()` |
+| `PlatformValidator`  | `load_JSON()`         | `loadYamlFile()`   |
+| `PlatformValidator`  | `load_JSONString()`   | `loadYamlString()` |
+| `SecurityIO`         | `getId_rsa_keysize()` | `getRsa_keysize()` |
+| `SecurityIO`         | `setId_rsa_keysize()` | Removed            |
+| `SecurityIO`         | `id_rsa_keysize`      | Removed            |
+| `ToolchainValidator` | `load_JSON()`         | `loadYamlFile()`   |
+| `ToolchainValidator` | `load_JSONString()`   | `loadYamlString()` |
+
+
+The following methods have moved.
+
+| Method           | Old class | New class |
+| ---------------- | --------- | --------- |
+| `getObjectValue` | `net.gleske.jervis.lang.LifecycleGenerator` | `net.gleske.jervis.tools.YamlOperator` |
+
+### Warnings:
+
+- Support for all vendors of JDK 1.8 is dropped in this release.
+- OpenJDK11 or OpenJDK17 is build runtime and OpenJDK8 is the bytecode
+  compatibility going forward to match the Jenkins project.  Groovy 2.4 does not
+  support higher than OpenJDK8 bytecode.
+- Function `getJervisYamlFiles(String owner, String repository)` within class
+  `net.gleske.jervis.remotes.GitHubGraphQL` used to default to `master` branch.
+  It now defaults to `main` branch.
+- Function `getJervisYamlFiles(String repositoryWithOwner)` within class
+  `net.gleske.jervis.remotes.GitHubGraphQL` used to default to `master` branch.
+  It now defaults to `main` branch.
 
 ### New features:
+
+#### Pipeline DSL scripts changes in the `vars/` folder
+
+- Jervis steps read from platforms, lifecycles, and toolchains YAML instead of
+  JSON.
+- Matrix building nodes reordered so it is wrapped in stages.
+- New `hasGlobalResource()` step which can be used to conditionally load
+  resources from `libraryResource` step.  Allows a pipeline developer to only
+  call `libraryResource` if it exists.  Normally `libraryResource` step will
+  throw an exception if the step doesn't exist.  This is a fully `NonCPS` step
+  and can be called from other `NonCPS` code blocks.
+- New `getBuildContextMap()` which returns information about the current running
+  pipeline such as how it was triggered, which part of Git workflow, and other
+  meta info.
+- New `getJervisPipelineGenerators()` which can read multiple repositories and
+  return `.jervis.yml` pipeline objects for each repository in one API call.
+- `isBuilding()` more reliable now that it is built into Jervis with unit tests.
+  Several bugs were fixed while reaching 100% test coverage.
+- `loadCustomResource()` has some new behavior.  It first loads
+  `adminLibraryResource`, then checks for the resource in the global config
+  files plugin, and finally falls back to `libraryResource`.  It can also skip
+  looking for `adminLibraryResource` via a new boolean option:
+  ```groovy
+  // skip loading adminLibraryResource
+  loadCustomResource('resource-name', true)
+  ```
+- The following vars are now fully `NonCPS`.  These vars can be called from
+  within other `NonCPS` annotated methods in shared pipelines.
+  - [`getBuildContextMap`](vars/getBuildContextMap.groovy)
+  - [`getJervisPipelineGenerators`](vars/getJervisPipelineGenerators.groovy)
+  - [`getUserBinding`](vars/getUserBinding.groovy)
+  - [`hasGlobalResource`](vars/hasGlobalResource.groovy)
+  - [`hasGlobalVar`](vars/hasGlobalVar.groovy)
+  - [`isBuilding`](vars/isBuilding.groovy)
+  - [`isPRBuild`](vars/isPRBuild.groovy)
+  - [`isTagBuild`](vars/isTagBuild.groovy)
+  - [`loadCustomResource`][loadCustomResource]
+  - [`prepareJervisLifecycleGenerator`](vars/prepareJervisLifecycleGenerator.groovy)
+  - [`prepareJervisPipelineGenerator`](vars/prepareJervisPipelineGenerator.groovy)
+
+#### Jervis API changes in `src/` folder
 
 - [`net.gleske.jervis.remotes.GitHubGraphQL`][GitHubGraphQL] has a new `sendGQL`
   method.  `variables` are now supported as a Map in addition to a String.  The
@@ -23,24 +215,88 @@ full change log see the commit log.
     [`VaultRoleIdCredentialImpl`][VaultRoleIdCredentialImpl], but custom
     credential resolver can be implented on
     [`VaultRoleIdCredential`][VaultRoleIdCredential] interface.
+- Extend [`net.gleske.jervis.remotes.StaticMocking`][StaticMocking] test class
+  to support recording mock API responses while calling Jervis dependent code.
+- SimpleRestServiceSupport class changes.  All REST services provided in
+  `net.gleske.jervis.remotes.*` have new behaviors.
+  - New HTTP header available on all REST services.  Setting the `Parse-JSON`
+    HTTP header on any REST service will override its default behavior.  It can
+    force-parse JSON or it can force returning plain text for JSON APIs instead
+    of parsed JSON objects.
+  - The default API response for SimpleRestService ias changed from a `Map` to a
+    `String`.  This means if there's no content response an empty `String` will
+    be returned regardless of JSON parsing for the API.  This used to return an
+    empty `HashMap`.
+- More flexibility has been added to static method
+  `net.gleske.jervis.remotes.SimpleRestService.apiFetch()`.
+- Enhancements in `net.gleske.jervis.tools.SecurityIO`
+  - Converted multiple functions to `static` to ease their use.
+  - Added AES-256 encryption functions.
+  - Added RS256 aglorithm for data signing and verification.
+  - Added GitHub JSON Web Token (JWT) creation and verification support.
+  - Added generic JWT verification.
+  - `avoidTimingAttack()` static function available with usage documentation.
+  - `getRsa_keysize()` always returns the calculated key size if any.
+- Enhancements in [`net.gleske.jervis.remotes.GitHub`][GitHub]
+  - Added support for adding headers to all requests via `GitHub.headers` field.
+  - Updated client HTTP headers to match GitHub v3 REST API version
+    `2022-11-28`.
+- New [`CipherMap`][CipherMap] utility class meant to transparently provide
+  strong encryption for map objects.
+- New [`EphemeralTokenCache`][EphemeralTokenCache] credential which is an
+  encrypted cache meant to store ephemeral API tokens issued by services such as
+  GitHub App or any other time-limited token service.  The intention of the
+  cache is to reuse issued tokens in order to reduce API requests.
+- GitHub App authentication now available via the following classes.
+  - [`EphemeralTokenCache`][EphemeralTokenCache] provides token storage and
+    automatic cleanup of expired tokens.
+  - [`GitHubAppRsaCredentialImpl`][GitHubAppRsaCredentialImpl]
+  - [`GitHubAppCredential`][GitHubAppCredential] a credential meant for API
+    clients such as [`GitHub`][GitHub] or [`GitHubGraphQL`][GitHubGraphQL].
+    Credential rotation is handled automatically and transparent to the client.
 
-### Bug fixes
+### Bug fixes:
 
+- Major bugfix: support for more HTTP methods which have no content in the
+  response.
 - Bugfix: Groovy 3.0.5 YAML `additional_toolchains` order was not preserved.
-  This change makes Jervis compatible with Groovy 2.4, 2.5, and 3.0 series of
-  releases.  Jenkins weekly currently uses Groovy 2.4.12 so this is more of a
-  future-proofing fix than a bug for existing usage.
+  This change makes Jervis compatible with Groovy 2.4, 2.5, 2.6, and 3.0, and
+  4.0 series of releases.  Jenkins LTS currently uses Groovy 2.4.21 so this is
+  more of a future-proofing fix than a bug for existing usage.
+- Minor bugfix around cipherlist loading in LifecycleGenerator.  Discovered via
+  100% test coverage goal.
 
+### Other notes:
+
+- Added support for [VSCode dev containers][vscode-devc] to ease with portable
+  development environments going forward.  Due to tight integration with X11 and
+  other Linux APIs the development host must be Linux in order to use VSCode dev
+  containers.  Fine for me since all of my computers are Linux but an important
+  note for would-be contributors.
+- Upgraded to Gradle 7.6
+- Added support for building on OpenJDK 11 and OpenJDK 17.  OpenJDK 17 requires
+  Gradle 3 or higher.
+- Extended support for building and running on Groovy versions 2.4 through 4.0.
+- API docs now have syntax highlighting in sample usage code blocks.
+
+[CipherMap]: src/main/groovy/net/gleske/jervis/tools/CipherMap.groovy
+[loadCustomResource]: vars/loadCustomResource.groovy
+[EphemeralTokenCache]: src/main/groovy/net/gleske/jervis/remotes/creds/EphemeralTokenCache.groovy
+[GitHubAppCredential]: src/main/groovy/net/gleske/jervis/remotes/creds/GitHubAppCredential.groovy
+[GitHubAppRsaCredentialImpl]: src/main/groovy/net/gleske/jervis/remotes/creds/GitHubAppRsaCredentialImpl.groovy
+[GitHub]: src/main/groovy/net/gleske/jervis/remotes/GitHub.groovy
+[StaticMocking]: src/test/groovy/net/gleske/jervis/remotes/StaticMocking.groovy
 [TokenCredential]: src/main/groovy/net/gleske/jervis/remotes/interfaces/TokenCredential.groovy
 [VaultAppRoleCredential]: src/main/groovy/net/gleske/jervis/remotes/creds/VaultAppRoleCredential.groovy
 [VaultRoleIdCredentialImpl]: src/main/groovy/net/gleske/jervis/remotes/creds/VaultRoleIdCredentialImpl.groovy
 [VaultRoleIdCredential]: src/main/groovy/net/gleske/jervis/remotes/interfaces/VaultRoleIdCredential.groovy
 [VaultService]: src/main/groovy/net/gleske/jervis/remotes/VaultService.groovy
 [vault.io]: https://www.vaultproject.io/
+[vscode-devc]: https://code.visualstudio.com/docs/devcontainers/containers
 
 # jervis 1.7 - Apr 14th, 2020
 
-### Bug fixes
+### Bug fixes:
 
 - Bugfix: Additional toolchains loaded into a matrix build did not properly
   matrix.  This bug has been fixed and tests added to avoid it.

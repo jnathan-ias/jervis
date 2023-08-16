@@ -1,0 +1,27 @@
+{
+    "name": "Jervis",
+    "initializeCommand": "./.devcontainer/build-dependencytrack-snapshot.sh",
+    "dockerComposeFile": ["docker-compose.yml"],
+    "workspaceFolder": "/workspace/jervis",
+    "service": "jervis",
+    "extensions": [
+        "2gua.rainbow-brackets",
+        "Gruntfuggly.todo-tree",
+        "davehart.quick-run-panel",
+        "marlon407.code-groovy",
+        "mhutchie.git-graph",
+        "naco-siren.gradle-language",
+        "oderwat.indent-rainbow",
+        "shardulm94.trailing-spaces",
+        "vscjava.vscode-gradle",
+        "vscjava.vscode-java-pack",
+        "vscodevim.vim"
+    ],
+    "settings": {
+        "trailing-spaces.deleteModifiedLinesOnly": true,
+        "QuickRunPanel.includeDebugConfigs": false,
+        "QuickRunPanel.taskSources": [
+            "Workspace"
+        ]
+    }
+}

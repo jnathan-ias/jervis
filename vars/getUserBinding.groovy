@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -35,10 +35,15 @@ import hudson.model.Run
 
 @NonCPS
 def getBuildBinding(Run run, String bindingVar) {
-    run.execution.shell.context.getVariable(bindingVar)
+    run.execution.shell.context.with { b ->
+        if(!b.hasVariable(bindingVar)) {
+            return null
+        }
+        b.getVariable(bindingVar)
+    }
 }
 
+@NonCPS
 def call(String bindingVar) {
     getBuildBinding(currentBuild.rawBuild, bindingVar)
 }
-

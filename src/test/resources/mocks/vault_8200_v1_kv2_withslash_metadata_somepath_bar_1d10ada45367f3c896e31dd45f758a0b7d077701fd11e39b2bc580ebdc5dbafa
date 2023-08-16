@@ -1,0 +1,10 @@
+request_id: cc64e69e-0c3f-42c7-2ecc-5ffed50bea98
+lease_id: ''
+renewable: false
+lease_duration: 0
+data:
+  keys:
+    - baz
+wrap_info: null
+warnings: null
+auth: null

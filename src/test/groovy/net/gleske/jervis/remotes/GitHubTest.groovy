@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
    */
 package net.gleske.jervis.remotes
 //the GitHubTest() class automatically sees the GitHub() class because they're in the same package
+import static net.gleske.jervis.remotes.StaticMocking.mockStaticUrl
+
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
-import static net.gleske.jervis.remotes.StaticMocking.mockStaticUrl
 
 class GitHubTest extends GroovyTestCase {
     def mygh
@@ -92,8 +93,8 @@ class GitHubTest extends GroovyTestCase {
     }
     @Test public void test_GitHub_set3Gh_token() {
         mygh.gh_token = 'a'
-        assert 'language: groovy\n' == mygh.getFile('samrocketman/jervis', '.travis.yml', 'master')
-        assert request_meta['headers']['Authorization'] == 'token a'
+        assert 'language: groovy\n' == mygh.getFile('samrocketman/jervis', '.travis.yml', 'main')
+        assert request_meta['headers']['Authorization'] == 'Bearer a'
     }
     //test GitHub().getWebUrl()
     @Test public void test_GitHub_getWebUrl1() {
@@ -122,17 +123,17 @@ class GitHubTest extends GroovyTestCase {
         assert mygh.toString() == 'GitHub Enterprise'
     }
     @Test public void test_GitHub_branches() {
-        assert ['gh-pages', 'master'] == mygh.branches('samrocketman/jervis')
+        assert ['gh-pages', 'main'] == mygh.branches('samrocketman/jervis')
     }
     @Test public void test_GitHub_getFile() {
-        assert 'language: groovy\n' == mygh.getFile('samrocketman/jervis', '.travis.yml', 'master')
+        assert 'language: groovy\n' == mygh.getFile('samrocketman/jervis', '.travis.yml', 'main')
     }
     @Test public void test_GitHub_getFile_default() {
         assert 'language: groovy\n' == mygh.getFile('samrocketman/jervis', '.travis.yml')
     }
     @Test public void test_GitHub_getFolderListing() {
-        assert ['.gitignore', '.travis.yml', 'LICENSE', 'README.md', 'build.gradle', 'src'] == mygh.getFolderListing('samrocketman/jervis', '/', 'master')
-        assert ['main', 'resources', 'test'] == mygh.getFolderListing('samrocketman/jervis', 'src', 'master')
+        assert ['.gitignore', '.travis.yml', 'LICENSE', 'README.md', 'build.gradle', 'src'] == mygh.getFolderListing('samrocketman/jervis', '/', 'main')
+        assert ['main', 'resources', 'test'] == mygh.getFolderListing('samrocketman/jervis', 'src', 'main')
     }
     @Test public void test_GitHub_getFolderListing_default() {
         assert ['.gitignore', '.travis.yml', 'LICENSE', 'README.md', 'build.gradle', 'src'] == mygh.getFolderListing('samrocketman/jervis', '/')
@@ -150,20 +151,20 @@ class GitHubTest extends GroovyTestCase {
         mygh.credential = new CredentialsInterfaceHelper.ROCreds()
         assert mygh.gh_token == 'ro secret'
         mygh.getFolderListing('samrocketman/jervis')
-        assert request_meta['headers']?.get('Authorization') == 'token ro secret'
+        assert request_meta['headers']?.get('Authorization') == 'Bearer ro secret'
         mygh.gh_token = 'foo'
         assert mygh.gh_token == 'ro secret'
         mygh.getFolderListing('samrocketman/jervis')
-        assert request_meta['headers']['Authorization'] == 'token ro secret'
+        assert request_meta['headers']['Authorization'] == 'Bearer ro secret'
     }
     @Test public void test_GitHub_credentials_write() {
         mygh.credential = new CredentialsInterfaceHelper.RWCreds()
         assert mygh.gh_token == 'rw secret'
         mygh.getFolderListing('samrocketman/jervis')
-        assert request_meta['headers']['Authorization'] == 'token rw secret'
+        assert request_meta['headers']['Authorization'] == 'Bearer rw secret'
         mygh.gh_token = 'foo'
         assert mygh.gh_token == 'foo'
         mygh.getFolderListing('samrocketman/jervis')
-        assert request_meta['headers']['Authorization'] == 'token foo'
+        assert request_meta['headers']['Authorization'] == 'Bearer foo'
     }
 }

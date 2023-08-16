@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
    provisioning where Jervis builds occur.
  */
 
-import net.gleske.jervis.lang.pipelineGenerator
+import net.gleske.jervis.lang.PipelineGenerator
 
-def call(pipelineGenerator pipeline_generator, String label, Closure body) {
+def call(PipelineGenerator pipeline_generator, String label, Closure body) {
     if(hasGlobalVar('adminJervisBuildNode')) {
         adminJervisBuildNode(pipeline_generator, label, body)
     }

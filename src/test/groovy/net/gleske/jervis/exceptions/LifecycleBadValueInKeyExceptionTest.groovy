@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
    */
 package net.gleske.jervis.exceptions
 //the LifecycleBadValueInKeyExceptionTest() class automatically sees the LifecycleBadValueInKeyException() class because they're in the same package
+
 import org.junit.After
 import org.junit.Before
 import org.junit.Test

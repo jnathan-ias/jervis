@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -14,15 +14,14 @@
    limitations under the License.
    */
 
-import net.gleske.jervis.lang.lifecycleGenerator
-import net.gleske.jervis.lang.pipelineGenerator
+import net.gleske.jervis.lang.PipelineGenerator
 
 /**
   Define supported report collection by offloading most of the logic work to
-  pipelineGenerator class.
+  PipelineGenerator class.
  */
 @NonCPS
-void initializeGenerator(pipelineGenerator pipeline_generator) {
+void initializeGenerator(PipelineGenerator pipeline_generator) {
     // what collections are supported?
     pipeline_generator.supported_collections = [
         'artifacts',
@@ -104,6 +103,7 @@ void initializeGenerator(pipelineGenerator pipeline_generator) {
     ]
 }
 
-void call(pipelineGenerator pipeline_generator) {
+@NonCPS
+void call(PipelineGenerator pipeline_generator) {
     initializeGenerator(pipeline_generator)
 }

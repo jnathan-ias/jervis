@@ -6,33 +6,57 @@ buildscript {
 }
 
 plugins {
-    id "org.sonarqube" version "2.7"
-    id 'com.github.kt3k.coveralls' version '2.8.4'
+    id "org.sonarqube" version "3.4.0.2513"
+    id 'com.github.kt3k.coveralls' version '2.12.0'
     id 'groovy'
     id 'jacoco'
-    id 'maven'
+    id 'maven-publish'
     id 'signing'
 }
 
-if(JavaVersion.current() != JavaVersion.VERSION_1_8) {
-    throw new GradleException("This project requires Java 8, but it's running on "+JavaVersion.current())
+if(JavaVersion.current() != JavaVersion.VERSION_11 && JavaVersion.current() != JavaVersion.VERSION_17) {
+    throw new GradleException("This project requires Java 11 or Java 17, but it's running on "+JavaVersion.current())
+}
+
+/*
+   Groovy 2.4.21 supports bytecode Java 1.8 and lower.  Do not use higher
+   bytecode values else it will default to Java 1.5.  Jenkins would need to
+   upgrade core version of Groovy before higher bytecode versions are
+   available.
+
+   https://github.com/groovy/GMavenPlus/issues/256
+*/
+compileJava {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+compileGroovy {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
 }
 
 group = 'net.gleske'
 archivesBaseName = 'jervis'
-jar.baseName = 'jervis'
 version = "${version}"
 
-ext.groovyVersion = System.getenv('GROOVY_VERSION')?: '2.4.15'
+ext.groovyVersion = System.getenv('GROOVY_VERSION')?: '2.4.21'
 ext.ossrhUsername = hasProperty('ossrhUsername')?project['ossrhUsername']:''
 ext.ossrhPassword = hasProperty('ossrhPassword')?project['ossrhPassword']:''
-ext.snakeYamlVersion = '1.26'
+ext.snakeYamlVersion = '1.33'
+ext.bouncyCastleVersion = '1.75'
+ext.codeNarcVersion = '3.2.0'
 
-//Apparently cobertura is only accurate at Java 1.6 byte code and earlier
-//However, this caused a bug that if this library is used on JDK7+ and then
-//throws a groovy exception.  Instead, an IncompatibleClassChangeError is thrown.
-//http://blog.proxerd.pl/article/how-to-fix-incompatibleclasschangeerror-for-your-groovy-projects-running-on-jdk7
-//sourceCompatibility = 1.6
+if(JavaVersion.current() == JavaVersion.VERSION_17 && Integer.parseInt(ext.groovyVersion.tokenize('.').first()) < 3) {
+    throw new GradleException("When using Java 17 you must use Groovy 3 or higher.  Found Groovy " + ext.groovyVersion)
+}
+
+if(Integer.parseInt(ext.groovyVersion.tokenize('.').first()) > 3) {
+    // Groovy 4 and higher
+    ext.groovyPackage = 'org.apache.groovy'
+} else {
+    ext.groovyPackage = 'org.codehaus.groovy'
+}
 
 apply from: 'file:gradle/groovydoc.gradle'
 apply from: 'file:gradle/jervis.gradle'
@@ -44,18 +68,40 @@ println "Building ${archivesBaseName}-${version}"
 repositories {
     mavenCentral()
 }
+
+// Address security vulnerability identified by DependencyTrack located as a
+// transitive dependency within groovy-ant.
+configurations.all {
+    resolutionStrategy {
+        dependencySubstitution {
+            substitute module('org.apache.ant:ant:1.9.15') with module('org.apache.ant:ant:1.9.16')
+            substitute module('org.apache.ant:ant-antlr:1.9.15') with module('org.apache.ant:ant-antlr:1.9.16')
+            substitute module('org.apache.ant:ant-junit:1.9.15') with module('org.apache.ant:ant-junit:1.9.16')
+        }
+    }
+}
+
 dependencies {
-    //compile "org.codehaus.groovy:groovy-all:${groovyVersion}"
-    compile "org.codehaus.groovy:groovy-ant:${groovyVersion}"
-    compile "org.codehaus.groovy:groovy-groovydoc:${groovyVersion}"
-    compile "org.codehaus.groovy:groovy-json:${groovyVersion}"
-    compile "org.codehaus.groovy:groovy-templates:${groovyVersion}"
-    compile "org.codehaus.groovy:groovy:${groovyVersion}"
-    compile 'org.bouncycastle:bcpkix-jdk15on:1.60'
-    compile "org.yaml:snakeyaml:${snakeYamlVersion}"
-    testCompile 'junit:junit:4.12'
-    testCompile "org.codehaus.groovy:groovy-test:${groovyVersion}"
-    testCompile "org.codehaus.groovy:groovy-console:${groovyVersion}"
+    //implementation "${groovyPackage}:groovy-all:${groovyVersion}"
+    implementation "${groovyPackage}:groovy-ant:${groovyVersion}"
+    implementation "${groovyPackage}:groovy-groovydoc:${groovyVersion}"
+    implementation "${groovyPackage}:groovy-json:${groovyVersion}"
+    implementation "${groovyPackage}:groovy-templates:${groovyVersion}"
+    implementation "${groovyPackage}:groovy:${groovyVersion}"
+    implementation "org.bouncycastle:bcpkix-jdk18on:${bouncyCastleVersion}"
+    implementation "org.yaml:snakeyaml:${snakeYamlVersion}"
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation "${groovyPackage}:groovy-test:${groovyVersion}"
+    testImplementation "${groovyPackage}:groovy-console:${groovyVersion}"
+    if(groovyVersion.tokenize('.').first() == '4') {
+        testImplementation "org.codenarc:CodeNarc:${codeNarcVersion}-groovy-4.0"
+    } else {
+        testImplementation "org.codenarc:CodeNarc:${codeNarcVersion}"
+    }
+    // CodeNarc throws stderr messages about SLF4J so this dependency makes the
+    // stderr go away.
+    testImplementation 'org.slf4j:slf4j-nop:2.0.5'
 }
 
 test {
@@ -66,121 +112,163 @@ test {
     minHeapSize = '128m'
     maxHeapSize = '512m'
 
-    //MaxPermSize was removed from Java 1.8
-    // set JVM arguments for the test JVM(s)
-    //jvmArgs '-XX:MaxPermSize=256m'
-
     // listen to events in the test execution lifecycle
     beforeTest { descriptor ->
-       logger.lifecycle('Running test: ' + descriptor)
+        logger.lifecycle('Running test: ' + descriptor)
     }
 
     // listen to standard out and standard error of the test JVM(s)
     onOutput { descriptor, event ->
-       logger.lifecycle('Test: ' + descriptor + ' produced standard out/err: ' + event.message )
+        logger.lifecycle('Test: ' + descriptor + ' produced standard out/err: ' + event.message )
     }
 }
 
-//http://swalsh.org/blog/2014/07/17/running-the-groovy-console-from-gradle/
+//https://github.com/s992/gatsby-blog/blob/master/src/content/posts/2014-07-17-running-the-groovy-console-from-gradle/index.md
 task( console, dependsOn: "classes", type: JavaExec ) {
-    main = "groovy.ui.Console"
+    mainClass = "groovy.ui.Console"
     classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
+}
+
+task( update_vscode, dependsOn: "classes" ) {
+    doLast {
+        String classpath = (sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath).asPath
+        Map launch = (new groovy.json.JsonSlurper()).parseText(new File('.vscode/launch.json').text)
+        launch.configurations[0].classPaths = classpath.tokenize(':')
+
+        new File('.vscode/launch.json').withWriter('UTF-8') { writer ->
+            writer << groovy.json.JsonOutput.prettyPrint((launch as groovy.json.JsonBuilder).toString())
+        }
+    }
 }
 
 //Maven Central uploads
 task javadocJar(type: Jar, dependsOn: groovydoc) {
-    classifier = 'javadoc'
+    archiveClassifier = 'javadoc'
     from groovydoc.destinationDir
 }
 
-task sourcesJar(type: Jar) {
-    classifier = 'sources'
-    from sourceSets.main.allSource
-}
-
 task testJar(type: Jar, dependsOn: testClasses) {
-    classifier = 'tests'
+    archiveClassifier = 'tests'
     includes = ['net/gleske/**/*.class']
     excludes = ['*.json', 'mocks/**/*', '**/*Test$_*.class', '**/*Test.class']
     from sourceSets.test.output
 }
 
 task testSourcesJar(type: Jar) {
-    classifier = 'tests-sources'
+    archiveClassifier = 'tests-sources'
     includes = ['net/gleske/**/*.groovy']
     excludes = ['**/*Test.groovy']
     from sourceSets.test.allSource
 }
 
 artifacts {
-    archives javadocJar, sourcesJar, testJar, testSourcesJar
+    archives javadocJar, testJar, testSourcesJar
 }
 
-signing {
-    required { gradle.taskGraph.hasTask("uploadArchives") }
-    def signingKey = findProperty("signingKey")
-    def signingPassword = findProperty("signingPassword")
-    useInMemoryPgpKeys(signingKey, signingPassword)
-    sign configurations.archives
+jar {
+    manifest {
+        attributes 'Library-Name': rootProject.name,
+                   'Library-Version': version,
+                   'Library-Source': 'https://github.com/samrocketman/jervis',
+                   'Library-Git-Hash': ['git', 'rev-parse', 'HEAD'].execute()?.text?.trim()
+    }
 }
 
-uploadArchives {
+publishing {
     repositories {
-        mavenDeployer {
-            beforeDeployment {
-                MavenDeployment deployment -> signing.signPom(deployment)
+        maven {
+            def releasesRepoUrl = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+            def snapshotsRepoUrl = "https://oss.sonatype.org/content/repositories/snapshots/"
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            credentials {
+                username = ossrhUsername
+                password = ossrhPassword
             }
-
-            repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
-                authentication(userName: ossrhUsername, password: ossrhPassword)
-            }
-
-            snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
-                authentication(userName: ossrhUsername, password: ossrhPassword)
-            }
-
-            pom.project {
-                name 'Jervis'
-                packaging 'jar'
+        }
+    }
+    publications {
+        binary(MavenPublication) {
+            from components.java
+        }
+        binaryAndSources(MavenPublication) {
+            from components.java
+            artifact javadocJar
+            artifact testJar
+            artifact testSourcesJar
+            pom {
+                name = 'Jervis'
+                packaging = 'jar'
                 // optionally artifactId can be defined here
-                description 'Travis-like Jenkins job generation using Jenkins Job DSL plugin groovy scripts. Reads .travis.yml and generates a job in Jenkins.'
-                url 'https://github.com/samrocketman/jervis'
-
-                scm {
-                    connection 'https://github.com/samrocketman/jervis.git'
-                    developerConnection 'git@github.com:samrocketman/jervis.git'
-                    url 'https://github.com/samrocketman/jervis'
-                }
+                description = 'Self service Jenkins job generation using Jenkins Job DSL plugin groovy scripts. Reads .jervis.yml and generates a job in Jenkins.'
+                url = 'https://github.com/samrocketman/jervis'
 
                 licenses {
                     license {
-                        name 'Apache License, Version 2.0'
-                        url 'https://raw.githubusercontent.com/samrocketman/jervis/master/LICENSE'
+                        name = 'Apache License, Version 2.0'
+                        url  = 'https://raw.githubusercontent.com/samrocketman/jervis/main/LICENSE'
                     }
                 }
 
                 developers {
                     developer {
-                        id 'sag47'
-                        name 'Sam Gleske'
-                        email 'sam.mxracer@gmail.com'
+                        id = 'sag47'
+                        name = 'Sam Gleske'
+                        email = 'sam.mxracer@gmail.com'
                     }
+                }
+
+                scm {
+                    connection = 'https://github.com/samrocketman/jervis.git'
+                    developerConnection = 'git@github.com:samrocketman/jervis.git'
+                    url = 'https://github.com/samrocketman/jervis'
                 }
             }
         }
     }
 }
 
+// ./gradlew publish
+tasks.withType(PublishToMavenRepository) {
+    onlyIf("publishing to maven central") {
+        publication == publishing.publications.binaryAndSources
+    }
+}
+
+// ./gradlew publishToMavenLocal
+tasks.withType(PublishToMavenLocal) {
+    onlyIf("publishing only jar") {
+        publication == publishing.publications.binary
+    }
+}
+
+// signing must go after publishing block
+signing {
+    required { gradle.taskGraph.hasTask("uploadArchives") && !gradle.taskGraph.hasTask("uploadArchives") }
+    def signingKey = findProperty("signingKey")
+    def signingPassword = findProperty("signingPassword")
+    useInMemoryPgpKeys(signingKey, signingPassword)
+    //sign configurations.archives
+    sign publishing.publications.binaryAndSources
+}
+
+// disable Gradle metadata in maven publishing
+tasks.withType(GenerateModuleMetadata) {
+    enabled = false
+}
+
 //dependencies for building a jar
 jar.dependsOn tasks.findAll { task -> task.name.endsWith('Jar') }
 
 //disable optimizations for accurate branch coverage
-//http://pbetkier.blogspot.com/2014/08/groovy-code-coverage-issues.html
+//https://pbetkier.github.io/2014/08/07/groovy-code-coverage-issues.html
 gradle.taskGraph.whenReady { graph ->
-    if (graph.hasTask(':jacocoTestReport')) {
+    if(graph.hasTask(':test')) {
+        compileTestGroovy.groovyOptions.configurationScript = file('gradle/groovyTestCompilerConfig.groovy')
+    }
+    if(graph.hasTask(':jacocoTestReport')) {
         compileGroovy.groovyOptions.optimizationOptions.all = false
     }
-    if (graph.hasTask(':uploadArchives')) {
+    if(graph.hasTask(':publish')) {
         if(!(System.getenv('ORG_GRADLE_PROJECT_signingKey') && System.getenv('ORG_GRADLE_PROJECT_signingPassword'))) {
             throw new GradleException("ERROR: Attempting to release without signing key and password.  See RELEASE.md for details.")
         }
@@ -189,12 +277,19 @@ gradle.taskGraph.whenReady { graph ->
 
 jacocoTestReport {
     reports {
-        csv.enabled false
+        csv.required = false
         xml {
-            enabled true
-            destination file("${buildDir}/test-results/jacoco.xml")
+            required = true
+            outputLocation = file("${buildDir}/test-results/jacoco.xml")
         }
-        html.destination file("${buildDir}/reports/jacoco")
+        html.outputLocation = file("${buildDir}/reports/jacoco")
+    }
+    if(!findProperty('betaCoverage')) {
+        afterEvaluate {
+            classDirectories.from = files(classDirectories.files.collect {
+                fileTree(dir: it, exclude: '**/beta/**')
+            })
+        }
     }
 }
 
@@ -205,11 +300,17 @@ coveralls {
 // sonarqube integration
 sonarqube {
     properties {
+        //property "sonar.projectKey", "jervis"
+        //property "sonar.projectName", "jervis"
         property "sonar.coverage.jacoco.xmlReportPaths", "${buildDir}/test-results/jacoco.xml"
+        if(!findProperty('betaCoverage')) {
+            property "sonar.coverage.exclusions", "**/beta/**"
+        }
     }
 }
-project.tasks["sonarqube"].dependsOn "check"
+project.tasks["jacocoTestReport"].dependsOn "check"
 project.tasks["sonarqube"].dependsOn "jacocoTestReport"
+project.tasks["coveralls"].dependsOn "jacocoTestReport"
 
 //http://www.gradle.org/docs/current/userguide/gradle_wrapper.html
-//generate gradlew with: ./gradlew wrapper --gradle-version 5.6.3
+//generate gradlew with: ./gradlew wrapper --gradle-version 7.6

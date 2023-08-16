@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@ import net.gleske.jervis.remotes.interfaces.TokenCredential
    to bring up a <a href="http://groovy-lang.org/groovyconsole.html"
    target="_blank">Groovy Console</a> with the classpath set up.</p>
 
-<pre><tt>import net.gleske.jervis.remotes.creds.ReadonlyTokenCredential
+<pre><code>
+import net.gleske.jervis.remotes.creds.ReadonlyTokenCredential
 import net.gleske.jervis.remotes.interfaces.TokenCredential
 
 class MyCredential implements ReadonlyTokenCredential {
@@ -42,7 +43,7 @@ def creds = new MyCredential()
 println "TokenCredential instance? ${creds instanceof TokenCredential}"
 println "Secret token: ${creds.token}"
 creds.setToken( 'foo')
-println creds.getToken()</tt></pre><br>
+println creds.getToken()</code></pre><br>
   */
 trait ReadonlyTokenCredential implements TokenCredential {
 
@@ -60,6 +61,7 @@ trait ReadonlyTokenCredential implements TokenCredential {
 
        @param token Does not matter because it will be discarded.
       */
+    @Override
     void setToken(String token) {
         // does nothing
     }

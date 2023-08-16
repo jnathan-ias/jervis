@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -118,5 +118,7 @@ List<Map> call(Map user_settings = [:], Map matrix_axes, Closure c) {
     axes
 }
 List<Map> call(Map user_settings = [:], Map matrix_axes) {
-    call(user_settings, matrix_axes, { m -> true})
+    call(user_settings, matrix_axes) {
+        true
+    }
 }

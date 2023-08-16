@@ -13,3 +13,15 @@ id_rsa*
 #ignore automatically copied libs
 /lib
 /bin/
+
+/.vscode/settings.json
+
+/.vagrant
+
+*.swp
+*.hprof
+
+#ignore test scripts
+/*.groovy
+
+*.pem

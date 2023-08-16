@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,44 +52,43 @@ package net.gleske.jervis.exceptions;
   programming.  The following is an example of overriding the
   <tt>{@link #LIFECYCLES_SPEC}</tt>.</p>
 
-<pre><tt>import net.gleske.jervis.exceptions.WikiPages
-WikiPages.metaClass.static.getLifecyclesSpec = {->'https://wiki.example.com/lifecycle_explanation.html'}
+<pre><code class="language-groovy">
+import net.gleske.jervis.exceptions.WikiPages
+WikiPages.metaClass.static.getLifecyclesSpec = {-&gt; 'https://wiki.example.com/lifecycle_explanation.html'}
 
-import net.gleske.jervis.lang.lifecycleValidator
+import net.gleske.jervis.lang.LifecycleValidator
 
-def x = new lifecycleValidator()
-x.load_JSONString("""
-{
-    "ruby": {
-        "defaultKey": "rake1",
-        "rake1": {
-            "fileExistsCondition": "Gemfile.lock",
-            "fallbackKey": "rake2",
-            "env": "export BUNDLE_GEMFILE=\$PWD/Gemfile",
-            "install": "bundle install --jobs=3 --retry=3 --deployment",
-            "script": "bundle exec rake"
-        },
-        "rake2": {
-            "env": "export BUNDLE_GEMFILE=\$PWD/Gemfile",
-            "install": "bundle install --jobs=3 --retry=3",
-            "script": "bundle exec rake"
-        }
-    }
-}
-""".toString())
-x.validate()</tt></pre>
+LifecycleValidator lifecycles = new LifecycleValidator()
+lifecycles.loadYamlString('''
+ruby:
+  defaultKey: rake1
+  rake1:
+    fileExistsCondition: Gemfile.lock
+    fallbackKey: rake2
+    env: export BUNDLE_GEMFILE=$PWD/Gemfile
+    install: bundle install --jobs=3 --retry=3 --deployment
+    script: bundle exec rake
+  rake2:
+    env: export BUNDLE_GEMFILE=$PWD/Gemfile
+    install: bundle install --jobs=3 --retry=3
+    script: bundle exec rake
+''')
+lifecycles.validate()
+</code></pre>
 
   The important part of the above example is the following excerpt.
 
-<pre><tt>import net.gleske.jervis.exceptions.WikiPages
-WikiPages.metaClass.static.getLifecyclesSpec = {->'https://wiki.example.com/lifecycle_explanation.html'}
+<pre><code class="language-groovy">
+import net.gleske.jervis.exceptions.WikiPages
+WikiPages.metaClass.static.getLifecyclesSpec = {-&gt; 'https://wiki.example.com/lifecycle_explanation.html'}
 
-import net.gleske.jervis.lang.lifecycleValidator</tt></pre>
+import net.gleske.jervis.lang.LifecycleValidator
+</code></pre>
 
   What is important is that we modified the <tt>WikiPages</tt> class
-  <strong>before</strong> we imported the <tt>{@link net.gleske.jervis.lang.lifecycleValidator}</tt> class.
+  <strong>before</strong> we imported the <tt>{@link net.gleske.jervis.lang.LifecycleValidator}</tt> class.
   This is important because the class can't be statically modified from within the
-  <tt>lifecycleValidator</tt> after it is imported.
+  <tt>LifecycleValidator</tt> after it is imported.
 
   Here's an example error message from the above sample.
 
@@ -100,9 +99,9 @@ See wiki page:
 https://wiki.example.com/lifecycle_explanation.html
 
 
-    at net.gleske.jervis.lang.lifecycleValidator$_validate_closure1.doCall(lifecycleValidator.groovy:118)
-    at net.gleske.jervis.lang.lifecycleValidator.validate(lifecycleValidator.groovy:112)
-    at net.gleske.jervis.lang.lifecycleValidator$validate$0.call(Unknown Source)</tt></pre>
+    at net.gleske.jervis.lang.LifecycleValidator$_validate_closure1.doCall(LifecycleValidator.groovy:118)
+    at net.gleske.jervis.lang.LifecycleValidator.validate(LifecycleValidator.groovy:112)
+    at net.gleske.jervis.lang.LifecycleValidator$validate$0.call(Unknown Source)</tt></pre>
  */
 public class WikiPages {
 

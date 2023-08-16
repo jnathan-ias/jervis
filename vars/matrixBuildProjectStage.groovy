@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
    This stage builds a matrix of builds in parallel.
  */
 
-import net.gleske.jervis.lang.lifecycleGenerator
-import net.gleske.jervis.lang.pipelineGenerator
+import net.gleske.jervis.lang.LifecycleGenerator
+import net.gleske.jervis.lang.PipelineGenerator
 
-def call(def global_scm, lifecycleGenerator generator, pipelineGenerator pipeline_generator, String script_header, String script_footer) {
+def call(def global_scm, LifecycleGenerator generator, PipelineGenerator pipeline_generator, String script_header, String script_footer) {
     Map tasks = [failFast: true]
     pipeline_generator.buildableMatrixAxes.each { matrix_axis ->
         String stageIdentifier = matrix_axis.collect { k, v -> generator.matrix_fullName_by_friendly[v]?:v }.join('\n')
@@ -28,11 +28,8 @@ def call(def global_scm, lifecycleGenerator generator, pipelineGenerator pipelin
         List axisEnvList = matrix_axis.collect { k, v -> "${k}=${v}" }
         Map stashMap = pipeline_generator.getStashMap(matrix_axis)
         tasks[stageIdentifier] = {
-            jervisBuildNode(pipeline_generator, label) {
-                stage("Checkout SCM") {
-                    checkout global_scm
-                }
-                stage("Build axis ${stageIdentifier}") {
+            stage("Build axis ${stageIdentifier}") {
+                jervisBuildNode(pipeline_generator, label) {
                     Boolean failed_stage = false
                     withEnvSecretWrapper(pipeline_generator, axisEnvList) {
                         String environment_string = sh(script: 'env | LC_ALL=C sort', returnStdout: true).split('\n').join('\n    ')

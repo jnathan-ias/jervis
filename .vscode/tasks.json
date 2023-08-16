@@ -1,0 +1,71 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Test: Publish to SonarQube",
+			"type": "shell",
+			"command": [
+				// https://github.com/jacoco/jacoco/issues/884#issuecomment-556936697
+				// Groovy 2.5.9 is the first version code coverage is accurately
+				// reported on Java 11 with Jacoco
+				"GROOVY_VERSION=4.0.13",
+				"./gradlew",
+				"-Dsonar.host.url=http://sonarqube:9000",
+				"-Dsonar.projectKey=jervis",
+				"-Dsonar.projectName=jervis",
+				// Uncomment this to enable code coverage analysis on beta
+				// packages.
+				// "-PbetaCoverage=1",
+				"clean",
+				"sonar"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "Security: Scan with DependencyTrack",
+			"type": "shell",
+			"command": [
+			//  "if ! grep DT_API_TOKEN ~/.bash_profile; then echo 'ERROR: Must set DT_API_TOKEN in ~/.bash_profile' >&2; exit 1; fi;",
+				"/bin/bash -exc './gradlew --init-script ./dependencytrack/dtrack.gradle cyclonedxBom; DT_ENDPOINT=http://dtrack-apiserver:8080 ./dependencytrack/submit-results.sh'"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "Generate API Docs",
+			"type": "shell",
+			"command": [
+				"/bin/bash -exc './gradlew -PtestGroovydoc=1 groovydoc; rm -rf ~/groovydoc; cp -r build/docs/groovydoc ~/'"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "Browser: SonarQube, DependencyTrack, etc",
+			"type": "shell",
+			"command": [
+				"/bin/bash -exc 'pgrep -f firefox || firefox & firefox http://sonarqube:9000/projects?sort=-analysis_date http://dependencytrack:8080/ http://vault:8200/ file:///home/vscode/groovydoc/index.html file://${workspaceFolder}/build/reports/codenarc-vars.html ${workspaceFolder}/build/reports/tests/test/index.html'"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "Update launch.json classPaths to match Gradle",
+			"type": "shell",
+			"command": [
+				"./gradlew",
+				"update_vscode"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "Compile Groovy Classes",
+			"type": "shell",
+			"hide": true,
+			"command": [
+				"./gradlew",
+				"clean",
+				"classes",
+				"testClasses",
+			],
+			"problemMatcher": []
+		}
+	]
+}

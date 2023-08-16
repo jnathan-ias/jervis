@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -22,8 +22,9 @@ package net.gleske.jervis.exceptions;
   <p>To run this example, clone Jervis and execute <tt>./gradlew console</tt>
   to bring up a <a href="http://groovy-lang.org/groovyconsole.html" target="_blank">Groovy Console</a>
   with the classpath set up.</p>
-<pre><tt>import net.gleske.jervis.exceptions.UnsupportedToolException
-throw new UnsupportedToolException('derpy')</tt></pre><br>
+<pre><code>
+import net.gleske.jervis.exceptions.UnsupportedToolException
+throw new UnsupportedToolException('derpy')</code></pre><br>
  */
 public class UnsupportedToolException extends GeneratorException {
     private static final String WIKI_PAGE = WikiPages.SUPPORTED_TOOLS;

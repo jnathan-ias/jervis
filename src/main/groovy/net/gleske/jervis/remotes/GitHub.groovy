@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -15,10 +15,9 @@
    */
 package net.gleske.jervis.remotes
 
-import net.gleske.jervis.remotes.interfaces.JervisCredential
 import net.gleske.jervis.remotes.interfaces.JervisRemote
 import net.gleske.jervis.remotes.interfaces.TokenCredential
-import net.gleske.jervis.tools.securityIO
+import net.gleske.jervis.tools.SecurityIO
 
 /**
    A simple class to interact with the GitHub v3 API for only the parts I need.
@@ -28,13 +27,14 @@ import net.gleske.jervis.tools.securityIO
    to bring up a <a href="http://groovy-lang.org/groovyconsole.html"
    target="_blank">Groovy Console</a> with the classpath set up.</p>
 
-<pre><tt>import net.gleske.jervis.remotes.GitHub
+<pre><code>
+import net.gleske.jervis.remotes.GitHub
 
 def x = new GitHub()
 println 'Print each branch.'
 x.branches('samrocketman/jervis').each{ println it }
-println 'Print the contents of .travis.yml from the master branch.'
-println x.getFile('samrocketman/jervis','.travis.yml','master')</tt></pre><br>
+println 'Print the contents of .travis.yml from the main branch.'
+println x.getFile('samrocketman/jervis','.travis.yml','main')</code></pre><br>
  */
 class GitHub implements JervisRemote, SimpleRestServiceSupport {
 
@@ -42,18 +42,29 @@ class GitHub implements JervisRemote, SimpleRestServiceSupport {
     private static final String DEFAULT_WEB_URL = 'https://github.com/'
     private static final String DEFAULT_GHE = 'https://github.com/api/v3/'
 
+    /**
+      Optional HTTP headers that can be added to every request.
+      */
+    Map headers = [:]
+
     @Override
     String baseUrl() {
         this.gh_api
     }
 
     @Override
-    Map header(Map http_headers = [:]) {
-        http_headers['Accept'] = 'application/vnd.github.v3+json'
-        if(this.getGh_token()) {
-            http_headers['Authorization'] = "token ${this.getGh_token()}".toString()
+    Map header(Map headers = [:]) {
+        Map tempHeaders = this.headers + headers
+        if(!('Accept' in tempHeaders.keySet())) {
+            tempHeaders['Accept'] = 'application/vnd.github.v3+json'
         }
-        http_headers
+        if(!('X-GitHub-Api-Version' in tempHeaders.keySet())) {
+            tempHeaders['X-GitHub-Api-Version'] = '2022-11-28'
+        }
+        if(this.getGh_token()) {
+            tempHeaders['Authorization'] = "Bearer ${this.getGh_token()}".toString()
+        }
+        tempHeaders
     }
 
     /**
@@ -206,7 +217,7 @@ class GitHub implements JervisRemote, SimpleRestServiceSupport {
 
       @param   project    A GitHub project including the org.  e.g. <tt>"samrocketman/jervis"</tt>
       @param   file_path  A path to a file relative to the root of the Git repository.  e.g. <tt>".travis.yml"</tt>
-      @param   ref        A git reference such as a branch, tag, or SHA1 hash.  e.g. <tt>"master"</tt>.  This option is optional.  If not specified the default branch is selected.
+      @param   ref        A git reference such as a branch, tag, or SHA1 hash.  e.g. <tt>"main"</tt>.  This option is optional.  If not specified the default branch is selected.
       @returns            A <tt>String</tt> which contains the contents of the file requested.
     */
     public String getFile(String project, String file_path, String ref = '') {
@@ -218,7 +229,7 @@ class GitHub implements JervisRemote, SimpleRestServiceSupport {
             path = "repos/${project}/contents/${file_path}"
         }
         def response = this.fetch(path)
-        def security = new securityIO()
+        def security = new SecurityIO()
         return security.decodeBase64String(response['content'])
     }
 
@@ -227,7 +238,7 @@ class GitHub implements JervisRemote, SimpleRestServiceSupport {
 
       @param   project    A GitHub project including the org.  e.g. <tt>samrocketman/jervis</tt>
       @param   dir_path   A path to a directory relative to the root of the Git repository.  This is optional.  By default is <tt>/</tt> (the repository root).
-      @param   ref        A git reference such as a branch, tag, or SHA1 hash.  e.g. <tt>master</tt>.  This option is optional.
+      @param   ref        A git reference such as a branch, tag, or SHA1 hash.  e.g. <tt>main</tt>.  This option is optional.
       @returns            An <tt>ArrayList</tt> which contains the contents of the file requested.
     */
     public ArrayList getFolderListing(String project, String dir_path = '/', String ref = '') {

@@ -1,8 +1,9 @@
 # Jervis: Jenkins as a service
 
-[![Maven Central Release][status-release]][maven-badge]
-[![Build Status][status-build]][jervis-travis]
+[![Build Status][status-build]][jervis-ci]
 [![Coverage Status][status-coverage]][jervis-coveralls]
+[![Maven Central Release][status-release]][maven-release]
+[![GH commits since latest release][commits-since]][commits-since-diff]
 
 * *Project status:* [released to maven central][maven-release].
 * *Currently Targeted platforms:*
@@ -14,7 +15,9 @@
 * What is Jervis? A library for [Job DSL plugin][jenkins-plugin-job-dsl]
   scripts and [shared Jenkins pipeline libraries][pipeline].  It is used to
   augment the automation of generating Jenkins jobs.
-* What is Jervis not? Jervis is not a Jenkins plugin.
+* [SCM Filter Jervis plugin][scm-filter-jervis] is available for multibranch
+  pipline filtering.  Installing this plugin also makes the Jervis library
+  available for import in shared pipeline libraries.
 
 # Documentation
 
@@ -80,8 +83,8 @@ sub-bullet.
   too many jobs are queued up on a daily basis.  A single Jenkins server
   struggles to perform all requested builds in a timely manner.  Jenkins also
   suffers from single point of failure as a lone server.
-  * Multi-master Jenkins was invented. This provides redundancy for the server.
-    Throughput for daily build capacity is improved.
+  * Multi-controller Jenkins was invented. This provides redundancy for the
+    server.  Throughput for daily build capacity is improved.
 * Jenkins jobs suffer from a lot of duplicate code.  It is difficult to fix a
   bug in one job and have it propagate to other jobs.
   * Jenkins Job DSL plugin was invented.  Configuration through code is now
@@ -111,7 +114,7 @@ include it in your build tool.
 <dependency>
   <groupId>net.gleske</groupId>
   <artifactId>jervis</artifactId>
-  <version>1.7</version>
+  <version>2.0</version>
   <type>pom</type>
 </dependency>
 ```
@@ -134,8 +137,8 @@ configurations {
 }
 
 dependencies {
-    libs 'net.gleske:jervis:1.7'
-    libs 'org.yaml:snakeyaml:1.26'
+    libs 'net.gleske:jervis:2.0'
+    libs 'org.yaml:snakeyaml:2.0'
 }
 
 task cleanLibs(type: Delete) {
@@ -183,7 +186,7 @@ See [SonarQube README](sonarqube/README.md).
 
 # License
 
-    Copyright 2014-2020 Sam Gleske
+    Copyright 2014-2023 Sam Gleske
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -197,14 +200,16 @@ See [SonarQube README](sonarqube/README.md).
     See the License for the specific language governing permissions and
     limitations under the License.
 
+[commits-since]: https://img.shields.io/github/commits-since/samrocketman/jervis/latest/main
+[commits-since-diff]: https://github.com/samrocketman/jervis/compare/jervis-2.0...HEAD
 [jenkins-plugin-docker]: https://wiki.jenkins-ci.org/display/JENKINS/Docker+Plugin
 [jenkins-plugin-job-dsl]: https://wiki.jenkins-ci.org/display/JENKINS/Job+DSL+Plugin
 [jenkins]: https://jenkins-ci.org/
 [jervis-api-docs]: http://sam.gleske.net/jervis-api/
+[jervis-ci]: https://github.com/samrocketman/jervis/actions?query=branch%3Amain
 [jervis-coveralls]: https://coveralls.io/github/samrocketman/jervis
 [jervis-docker]: https://github.com/samrocketman/docker-jenkins-jervis
 [jervis-jenkins-bootstrap]: https://github.com/samrocketman/jenkins-bootstrap-jervis
-[jervis-travis]: https://travis-ci.org/samrocketman/jervis
 [jervis-wiki-build-tools]: https://github.com/samrocketman/jervis/wiki/Supported-Tools
 [jervis-wiki-languages]: https://github.com/samrocketman/jervis/wiki/Supported-Languages
 [jervis-wiki-overview]: https://github.com/samrocketman/jervis/wiki/Build-overview
@@ -212,13 +217,13 @@ See [SonarQube README](sonarqube/README.md).
 [json-lifecycles]: resources/lifecycles-ubuntu1604-stable.json
 [json-platforms]: resources/platforms.json
 [json-toolchains]: resources/toolchains-ubuntu1604-stable.json
-[maven-badge]: https://github.com/jirutka/maven-badges
 [maven-release]: https://search.maven.org/search?q=g:net.gleske%20AND%20a:jervis&core=gav
 [milestone-progress]: https://github.com/samrocketman/jervis/milestones
 [pipeline]: https://jenkins.io/doc/book/pipeline/shared-libraries/
-[status-build]: https://travis-ci.org/samrocketman/jervis.svg?branch=main
+[scm-filter-jervis]: https://plugins.jenkins.io/scm-filter-jervis/
+[status-build]: https://img.shields.io/github/actions/workflow/status/samrocketman/jervis/ci.yaml?branch=main
 [status-coverage]: https://coveralls.io/repos/github/samrocketman/jervis/badge.svg?branch=main
-[status-release]: https://maven-badges.herokuapp.com/maven-central/net.gleske/jervis/badge.svg
+[status-release]: https://img.shields.io/maven-central/v/net.gleske/jervis?color=success
 [travis-yaml]: http://docs.travis-ci.com/user/build-configuration/
 [travis]: https://travis-ci.org/
 [watch-repo]: https://help.github.com/articles/watching-repositories/

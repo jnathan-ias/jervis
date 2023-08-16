@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -14,16 +14,18 @@
    limitations under the License.
    */
 
+// static imports always first according to CodeNarc
+import static jenkins.bouncycastle.api.PEMEncodable.decode
 
+import static net.gleske.jervis.tools.YamlOperator.getObjectValue
 import net.gleske.jervis.exceptions.SecurityException
-import net.gleske.jervis.lang.lifecycleGenerator
+import net.gleske.jervis.lang.LifecycleGenerator
 import net.gleske.jervis.remotes.GitHub
 
 import hudson.console.HyperlinkNote
 import hudson.util.Secret
 import jenkins.bouncycastle.api.PEMEncodable
 import jenkins.model.Jenkins
-import static jenkins.bouncycastle.api.PEMEncodable.decode
 
 /**
   Gets GitHub API token from the global credential store.
@@ -79,7 +81,7 @@ String getFolderRSAKeyCredentials(String folder, String credentials_id) {
           list of files in the root of the repository.
  */
 @NonCPS
-List initializeGenerator(lifecycleGenerator generator, String project, String JERVIS_BRANCH, String credentials_id) {
+List initializeGenerator(LifecycleGenerator generator, String project, String JERVIS_BRANCH, String credentials_id) {
     String jervis_yaml
     def git_service = new GitHub()
     git_service.gh_token = getGitHubAPIToken(credentials_id).toString()
@@ -106,12 +108,12 @@ List initializeGenerator(lifecycleGenerator generator, String project, String JE
   platform and stability.
  */
 @NonCPS
-void finalizeGenerator(lifecycleGenerator generator, String lifecycles_json, String toolchains_json, String jervis_yaml, List folder_listing, String jenkins_folder) {
+void finalizeGenerator(LifecycleGenerator generator, String lifecycles_json, String toolchains_json, String jervis_yaml, List folder_listing, String jenkins_folder) {
     generator.loadLifecyclesString(lifecycles_json)
     generator.loadToolchainsString(toolchains_json)
     generator.loadYamlString(jervis_yaml)
     generator.folder_listing = folder_listing
-    String secrets_credentials_id = generator.getObjectValue(generator.jervis_yaml, 'jenkins.secrets_id', '')
+    String secrets_credentials_id = getObjectValue(generator.jervis_yaml, 'jenkins.secrets_id', '')
     String private_key_contents = getFolderRSAKeyCredentials(jenkins_folder, secrets_credentials_id)
     if(secrets_credentials_id && !private_key_contents) {
         throw new SecurityException("Could not find private key using Jenkins Credentials ID: ${secrets_credentials_id}")
@@ -122,19 +124,20 @@ void finalizeGenerator(lifecycleGenerator generator, String lifecycles_json, Str
     }
 }
 
-void call(lifecycleGenerator generator, String github_credentials) {
+@NonCPS
+void call(LifecycleGenerator generator, String github_credentials) {
     /*
        Initialize generator object from GitHub API.
      */
     String project = currentBuild.rawBuild.parent.parent.sources[0].source.with { "${it.repoOwner}/${it.repository}" }
-    generator.loadPlatformsString(loadCustomResource('platforms.json'))
+    generator.loadPlatformsString(loadCustomResource('platforms.yaml'))
     String branch = ((isPRBuild()) ? "refs/pull/${env.CHANGE_ID}/head" : env.BRANCH_NAME)
 
     initializeGenerator(generator, project, branch, github_credentials).with {
         String os_stability = "${generator.label_os}-${generator.label_stability}"
         finalizeGenerator(generator,
-            loadCustomResource("lifecycles-${os_stability}.json"),
-            loadCustomResource("toolchains-${os_stability}.json"),
+            loadCustomResource("lifecycles-${os_stability}.yaml"),
+            loadCustomResource("toolchains-${os_stability}.yaml"),
             it[0],
             it[1],
             currentBuild.rawBuild.parent.parent.fullName.split('/')[0])

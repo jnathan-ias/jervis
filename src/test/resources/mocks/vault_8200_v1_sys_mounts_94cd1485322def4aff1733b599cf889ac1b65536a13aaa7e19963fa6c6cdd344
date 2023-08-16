@@ -1,0 +1,292 @@
+cubbyhole/:
+  accessor: cubbyhole_bc5bf014
+  config:
+    default_lease_ttl: 0
+    force_no_cache: false
+    max_lease_ttl: 0
+  description: per-token private secret storage
+  external_entropy_access: false
+  local: true
+  options: null
+  plugin_version: ''
+  running_plugin_version: v1.12.1+builtin.vault
+  running_sha256: ''
+  seal_wrap: false
+  type: cubbyhole
+  uuid: 48782564-b71f-64c4-5dba-353f90f07811
+kv/:
+  accessor: kv_2220cadf
+  config:
+    default_lease_ttl: 0
+    force_no_cache: false
+    max_lease_ttl: 0
+  deprecation_status: supported
+  description: ''
+  external_entropy_access: false
+  local: false
+  options:
+    version: '2'
+  plugin_version: ''
+  running_plugin_version: v0.13.0+builtin
+  running_sha256: ''
+  seal_wrap: false
+  type: kv
+  uuid: 4a689527-0ce2-6809-7822-3fc9e4f744c2
+kv_cas/:
+  accessor: kv_e949168a
+  config:
+    default_lease_ttl: 0
+    force_no_cache: false
+    max_lease_ttl: 0
+  deprecation_status: supported
+  description: ''
+  external_entropy_access: false
+  local: false
+  options:
+    version: '2'
+  plugin_version: ''
+  running_plugin_version: v0.13.0+builtin
+  running_sha256: ''
+  seal_wrap: false
+  type: kv
+  uuid: dd2b1d11-3001-ca7d-08a3-98aaa2babf16
+secret/:
+  accessor: kv_cfd8c3bf
+  config:
+    default_lease_ttl: 0
+    force_no_cache: false
+    max_lease_ttl: 0
+  deprecation_status: supported
+  description: ''
+  external_entropy_access: false
+  local: false
+  options:
+    version: '1'
+  plugin_version: ''
+  running_plugin_version: v0.13.0+builtin
+  running_sha256: ''
+  seal_wrap: false
+  type: kv
+  uuid: 15bbc75c-8d1b-7509-bb18-f17414b2ce73
+kv2/withslash/:
+  accessor: kv_ce406b6e
+  config:
+    default_lease_ttl: 0
+    force_no_cache: false
+    max_lease_ttl: 0
+  deprecation_status: supported
+  description: ''
+  external_entropy_access: false
+  local: false
+  options:
+    version: '2'
+  plugin_version: ''
+  running_plugin_version: v0.13.0+builtin
+  running_sha256: ''
+  seal_wrap: false
+  type: kv
+  uuid: d9d82163-54cb-6638-4099-be49a813ebb3
+secret2/withslash/:
+  accessor: kv_bda0dc45
+  config:
+    default_lease_ttl: 0
+    force_no_cache: false
+    max_lease_ttl: 0
+  deprecation_status: supported
+  description: ''
+  external_entropy_access: false
+  local: false
+  options:
+    version: '1'
+  plugin_version: ''
+  running_plugin_version: v0.13.0+builtin
+  running_sha256: ''
+  seal_wrap: false
+  type: kv
+  uuid: a31579fa-473f-9035-4b8a-119257994252
+sys/:
+  accessor: system_a955889f
+  config:
+    default_lease_ttl: 0
+    force_no_cache: false
+    max_lease_ttl: 0
+    passthrough_request_headers:
+      - Accept
+  description: system endpoints used for control, policy and debugging
+  external_entropy_access: false
+  local: false
+  options: null
+  plugin_version: ''
+  running_plugin_version: v1.12.1+builtin.vault
+  running_sha256: ''
+  seal_wrap: true
+  type: system
+  uuid: 1d651af9-fb21-48d3-b5e1-12bad73cd2e7
+identity/:
+  accessor: identity_5ffa9463
+  config:
+    default_lease_ttl: 0
+    force_no_cache: false
+    max_lease_ttl: 0
+    passthrough_request_headers:
+      - Authorization
+  description: identity store
+  external_entropy_access: false
+  local: false
+  options: null
+  plugin_version: ''
+  running_plugin_version: v1.12.1+builtin.vault
+  running_sha256: ''
+  seal_wrap: false
+  type: identity
+  uuid: 9b46d62c-d0b3-46c4-1860-9e978afe5772
+request_id: e0fccb85-abf4-058c-9f1e-ed446058cf04
+lease_id: ''
+renewable: false
+lease_duration: 0
+data:
+  cubbyhole/:
+    accessor: cubbyhole_bc5bf014
+    config:
+      default_lease_ttl: 0
+      force_no_cache: false
+      max_lease_ttl: 0
+    description: per-token private secret storage
+    external_entropy_access: false
+    local: true
+    options: null
+    plugin_version: ''
+    running_plugin_version: v1.12.1+builtin.vault
+    running_sha256: ''
+    seal_wrap: false
+    type: cubbyhole
+    uuid: 48782564-b71f-64c4-5dba-353f90f07811
+  identity/:
+    accessor: identity_5ffa9463
+    config:
+      default_lease_ttl: 0
+      force_no_cache: false
+      max_lease_ttl: 0
+      passthrough_request_headers:
+        - Authorization
+    description: identity store
+    external_entropy_access: false
+    local: false
+    options: null
+    plugin_version: ''
+    running_plugin_version: v1.12.1+builtin.vault
+    running_sha256: ''
+    seal_wrap: false
+    type: identity
+    uuid: 9b46d62c-d0b3-46c4-1860-9e978afe5772
+  kv/:
+    accessor: kv_2220cadf
+    config:
+      default_lease_ttl: 0
+      force_no_cache: false
+      max_lease_ttl: 0
+    deprecation_status: supported
+    description: ''
+    external_entropy_access: false
+    local: false
+    options:
+      version: '2'
+    plugin_version: ''
+    running_plugin_version: v0.13.0+builtin
+    running_sha256: ''
+    seal_wrap: false
+    type: kv
+    uuid: 4a689527-0ce2-6809-7822-3fc9e4f744c2
+  kv2/withslash/:
+    accessor: kv_ce406b6e
+    config:
+      default_lease_ttl: 0
+      force_no_cache: false
+      max_lease_ttl: 0
+    deprecation_status: supported
+    description: ''
+    external_entropy_access: false
+    local: false
+    options:
+      version: '2'
+    plugin_version: ''
+    running_plugin_version: v0.13.0+builtin
+    running_sha256: ''
+    seal_wrap: false
+    type: kv
+    uuid: d9d82163-54cb-6638-4099-be49a813ebb3
+  kv_cas/:
+    accessor: kv_e949168a
+    config:
+      default_lease_ttl: 0
+      force_no_cache: false
+      max_lease_ttl: 0
+    deprecation_status: supported
+    description: ''
+    external_entropy_access: false
+    local: false
+    options:
+      version: '2'
+    plugin_version: ''
+    running_plugin_version: v0.13.0+builtin
+    running_sha256: ''
+    seal_wrap: false
+    type: kv
+    uuid: dd2b1d11-3001-ca7d-08a3-98aaa2babf16
+  secret/:
+    accessor: kv_cfd8c3bf
+    config:
+      default_lease_ttl: 0
+      force_no_cache: false
+      max_lease_ttl: 0
+    deprecation_status: supported
+    description: ''
+    external_entropy_access: false
+    local: false
+    options:
+      version: '1'
+    plugin_version: ''
+    running_plugin_version: v0.13.0+builtin
+    running_sha256: ''
+    seal_wrap: false
+    type: kv
+    uuid: 15bbc75c-8d1b-7509-bb18-f17414b2ce73
+  secret2/withslash/:
+    accessor: kv_bda0dc45
+    config:
+      default_lease_ttl: 0
+      force_no_cache: false
+      max_lease_ttl: 0
+    deprecation_status: supported
+    description: ''
+    external_entropy_access: false
+    local: false
+    options:
+      version: '1'
+    plugin_version: ''
+    running_plugin_version: v0.13.0+builtin
+    running_sha256: ''
+    seal_wrap: false
+    type: kv
+    uuid: a31579fa-473f-9035-4b8a-119257994252
+  sys/:
+    accessor: system_a955889f
+    config:
+      default_lease_ttl: 0
+      force_no_cache: false
+      max_lease_ttl: 0
+      passthrough_request_headers:
+        - Accept
+    description: system endpoints used for control, policy and debugging
+    external_entropy_access: false
+    local: false
+    options: null
+    plugin_version: ''
+    running_plugin_version: v1.12.1+builtin.vault
+    running_sha256: ''
+    seal_wrap: true
+    type: system
+    uuid: 1d651af9-fb21-48d3-b5e1-12bad73cd2e7
+wrap_info: null
+warnings: null
+auth: null

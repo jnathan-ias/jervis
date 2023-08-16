@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -14,47 +14,52 @@
    limitations under the License.
    */
 
-if(hasGlobalVar('adminInjectEnvironment')) {
-    adminInjectEnvironment()
-}
-else {
-    injectEnvironment()
-}
+import net.gleske.jervis.lang.LifecycleGenerator
 
-import net.gleske.jervis.lang.lifecycleGenerator
-import net.gleske.jervis.lang.pipelineGenerator
-
-/**
-  call() is the main method of buildViaJervis()
- */
-def call() {
-    def global_scm = scm
+@NonCPS
+void setupJervisEnvironment() {
     BRANCH_NAME = env.CHANGE_BRANCH ?: env.BRANCH_NAME
 
     // JERVIS INJECTED ENVIRONMENT VARIABLES
     // Pull Request detection
-    env.IS_PR_BUILD = isBuilding('pr').toString()
-    // Tag detection
-    env.IS_TAG_BUILD = isBuilding('tag').toString()
-    // Timer build detection
-    env.IS_CRON_BUILD = isBuilding('cron').toString()
+    env.IS_PR_BUILD = isBuilding(['pr']).toString()
     // Branch detection
-    env.IS_BRANCH_BUILD = isBuilding('branch').toString()
+    env.IS_BRANCH_BUILD = isBuilding(['branch']).toString()
+    // Tag detection
+    env.IS_TAG_BUILD = isBuilding(['tag']).toString()
+    // Build was triggered by cron timer
+    env.IS_CRON_BUILD = isBuilding(['cron']).toString()
+    // Build was triggered by PR comment
+    env.IS_PR_COMMENT = isBuilding(['pr_comment']).toString()
+    // Someone clicked the build button
+    env.IS_MANUAL_BUILD = isBuilding(['manually']).toString()
     currentBuild.rawBuild.parent.parent.sources[0].source.with {
         env.JERVIS_DOMAIN = ((it.apiUri)? it.apiUri.split('/')[2] : 'github.com')
         env.JERVIS_ORG = it.repoOwner
         env.JERVIS_PROJECT =it.repository
     }
     env.JERVIS_BRANCH = BRANCH_NAME
-    //fix pull request branch name.  Otherwise shows up as PR-* as the branch name.
+    // Fix pull request branch name.  Otherwise shows up as PR-* as the branch
+    // name.
     if(isBuilding('pr')) {
         env.BRANCH_NAME = env.CHANGE_BRANCH
     }
+}
+
+/**
+  call() is the main method of buildViaJervis()
+ */
+def call() {
+    if(hasGlobalVar('adminInitialSetup')) {
+        adminInitialSetup()
+    }
+    def global_scm = scm
+    setupJervisEnvironment()
 
     /*
        Jenkins pipeline stages for a build pipeline.
      */
-    def generator = new lifecycleGenerator()
+    def generator = new LifecycleGenerator()
     generator.is_pr = isBuilding('pr')
     def pipeline_generator
     String script_header
@@ -63,6 +68,9 @@ def call() {
         pipeline_generator = it
         script_header = loadCustomResource "header.sh"
         script_footer = loadCustomResource "footer.sh"
+    }
+    if(hasGlobalVar('adminCustomizePipelineGenerator')) {
+        pipeline_generator = adminCustomizePipelineGenerator(pipeline_generator)
     }
     if(generator.isMatrixBuild()) {
         // this occurs in parallel across multiple build nodes (1 node per axis)
@@ -85,5 +93,6 @@ def call() {
             error 'This build has failed.  No user-defined pipelines will be run.'
         }
     }
+    setUserBinding('jervis_global_pipeline_generator', pipeline_generator)
     pipeline_generator
 }

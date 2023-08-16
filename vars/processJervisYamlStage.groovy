@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2020 Sam Gleske - https://github.com/samrocketman/jervis
+   Copyright 2014-2023 Sam Gleske - https://github.com/samrocketman/jervis
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -17,15 +17,16 @@
   This will process Jervis YAML in a Jenkins pipeline stage.
  */
 
-import net.gleske.jervis.lang.lifecycleGenerator
-import net.gleske.jervis.lang.pipelineGenerator
+import static net.gleske.jervis.tools.YamlOperator.getObjectValue
+import net.gleske.jervis.lang.LifecycleGenerator
+import net.gleske.jervis.lang.PipelineGenerator
 
 /**
   Returns a string which can be printed.  It is the decrypted properties from a
   .jervis.yml file.
  */
 @NonCPS
-String printDecryptedProperties(lifecycleGenerator generator, String credentials_id) {
+String printDecryptedProperties(LifecycleGenerator generator, String credentials_id) {
     [
         "Used Jenkins Credentials ID ${credentials_id}.",
         'Decrypted the following properties (indented):',
@@ -33,13 +34,13 @@ String printDecryptedProperties(lifecycleGenerator generator, String credentials
     ].join('\n') as String
 }
 
-def call(lifecycleGenerator generator, Closure body) {
+def call(LifecycleGenerator generator, Closure body) {
     stage('Process Jervis YAML') {
         prepareJervisLifecycleGenerator(generator, 'github-token')
-        def pipeline_generator = new pipelineGenerator(generator)
+        def pipeline_generator = new PipelineGenerator(generator)
         prepareJervisPipelineGenerator(pipeline_generator)
         //attempt to get the private key else return an empty string
-        String credentials_id = generator.getObjectValue(generator.jervis_yaml, 'jenkins.secrets_id', '')
+        String credentials_id = getObjectValue(generator.jervis_yaml, 'jenkins.secrets_id', '')
         if(credentials_id) {
             echo "DECRYPTED PROPERTIES\n${printDecryptedProperties(generator, credentials_id)}"
         }
